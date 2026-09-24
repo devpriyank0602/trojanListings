@@ -36,6 +36,13 @@ public class ModelLoader implements Capability {
 
     private static final Logger log = LoggerFactory.getLogger(ModelLoader.class);
 
+    /**
+     * Floors, not exact sizes -- upstream may republish. A file below these is a
+     * partial download, which ORT would otherwise report as an opaque parse error.
+     */
+    private static final long MIN_MODEL_BYTES = 250_000_000L;
+    private static final long MIN_TOKENIZER_BYTES = 100_000L;
+
     private final Path modelDir;
     private OrtEnvironment environment;
     private OrtSession session;
@@ -59,6 +66,14 @@ public class ModelLoader implements Capability {
             return;
         }
 
+        String truncated = findTruncated(model, tokenizerJson);
+        if (truncated != null) {
+            unavailableReason = truncated;
+            log.warn("Classifier unavailable: {}. Screening continues in degraded mode "
+                    + "(structural + pattern layers).", unavailableReason);
+            return;
+        }
+
         try {
             long started = System.currentTimeMillis();
             environment = OrtEnvironment.getEnvironment();
@@ -76,6 +91,29 @@ public class ModelLoader implements Capability {
             log.warn("Classifier failed to load ({}). Screening continues in degraded mode.",
                     unavailableReason);
             closeQuietly();
+        }
+    }
+
+    /**
+     * Distinguishes a partial download from a missing one. Without this an
+     * interrupted transfer surfaces as a raw ORT parse error, which reads like a
+     * corrupt model or a wrong model choice rather than "run the script again".
+     *
+     * @return a reason naming the remedy, or null if both files look complete
+     */
+    private String findTruncated(Path model, Path tokenizerJson) {
+        String reason = tooSmall(model, MIN_MODEL_BYTES);
+        return reason != null ? reason : tooSmall(tokenizerJson, MIN_TOKENIZER_BYTES);
+    }
+
+    private String tooSmall(Path file, long floor) {
+        try {
+            long size = Files.size(file);
+            if (size >= floor) return null;
+            return file.getFileName() + " is " + size + " bytes, expected at least " + floor
+                    + " -- partial download, re-run scripts/download-model.sh to resume";
+        } catch (java.io.IOException e) {
+            return "cannot read " + file.getFileName() + ": " + e.getMessage();
         }
     }
 

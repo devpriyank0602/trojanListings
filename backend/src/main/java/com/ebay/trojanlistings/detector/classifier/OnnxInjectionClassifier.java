@@ -67,7 +67,7 @@ public class OnnxInjectionClassifier {
         for (SentenceSplitter.Sentence sentence : splitter.split(normalisedText)) {
             double score;
             try {
-                score = scoreSentence(sentence.text());
+                score = scoreSentence(withoutFieldMarkers(sentence.text()));
             } catch (Exception e) {
                 // One unscoreable sentence must not fail the whole verdict. The
                 // structural and pattern layers still stand.
@@ -86,7 +86,7 @@ public class OnnxInjectionClassifier {
             findings.add(new Finding(
                     Finding.Layer.CLASSIFIER,
                     ConcealmentTechnique.NONE,
-                    assembled.fieldAt(start),
+                    assembled.fieldOverlapping(start, end),
                     sentence.text(), start, end,
                     sentence.text(),
                     round(score),
@@ -95,6 +95,22 @@ public class OnnxInjectionClassifier {
                             + "to a model rather than a description for a buyer."));
         }
         return findings;
+    }
+
+    /**
+     * Drops the {@code [TITLE] } / {@code [SPECIFIC:Subject] } markers that
+     * {@link com.ebay.trojanlistings.detector.ListingAssembler} inserts.
+     *
+     * <p>Those markers are ours, not the seller's. They exist so the structural layer
+     * can spot a forged one and so findings can name the field they came from; the
+     * classifier has never seen them in training and reads them as an instruction
+     * preamble. Un-stripped, the two-word item specific {@code "[SPECIFIC:Subject]
+     * Computing"} scores 0.91 -- above even the raised 0.85 threshold -- on a listing
+     * with nothing wrong with it. Stripping is only for scoring: findings still report
+     * the span and offsets of the original sentence, so provenance is unaffected.
+     */
+    static String withoutFieldMarkers(String sentence) {
+        return sentence.replaceAll("\\[(?:TITLE|DESCRIPTION|SELLER|IMAGE_TEXT|SPECIFIC:[^\\]]*)]\\s*", "");
     }
 
     /** @return probability that this sentence is an injection, in [0,1] */

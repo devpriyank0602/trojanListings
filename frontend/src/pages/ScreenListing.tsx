@@ -93,14 +93,32 @@ export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft })
             <>
               <VerdictPanel result={result} />
               <ScreeningLayers result={result} />
-              <EvidenceList findings={result.findings} />
-              <ImageEvidence result={result} imageDataUrl={draft.imageBase64} />
-              <HighlightedSpan
-                assembled={result.assembledText}
-                findings={result.findings}
-                revealed={revealed}
-                onToggleRevealed={setRevealed}
-              />
+
+              {/*
+                A clean listing has nothing to evidence and nothing to mark up. Showing
+                an empty "Why this is a Trojan" section, a listing with no highlights and
+                a disabled reveal toggle asks the reviewer to read three panels to learn
+                what the badge already said. So the detail is rendered only for TROJAN.
+
+                The one exception is an image we could not read: FR-037 requires that it
+                never reads as clean, so that warning stays regardless of the verdict.
+              */}
+              {result.verdict === 'TROJAN' ? (
+                <>
+                  <EvidenceList findings={result.findings} />
+                  <ImageEvidence result={result} imageDataUrl={draft.imageBase64} />
+                  <HighlightedSpan
+                    assembled={result.assembledText}
+                    findings={result.findings}
+                    revealed={revealed}
+                    onToggleRevealed={setRevealed}
+                  />
+                </>
+              ) : (
+                result.imageScreened === 'NOT_SCREENED' && (
+                  <ImageEvidence result={result} imageDataUrl={draft.imageBase64} />
+                )
+              )}
             </>
           )}
         </div>

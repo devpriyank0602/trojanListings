@@ -91,7 +91,7 @@ class ScreeningControllerTest {
     @Test
     @DisplayName("V6: an in-image attack is caught with the photo named as the source")
     void inImageAttackCaught() throws Exception {
-        Path image = Path.of("../corpus/images/img-promo-01.png");
+        Path image = Path.of("../corpus/images/h-img-01.jpg");
         String b64 = Base64.getEncoder().encodeToString(Files.readAllBytes(image));
 
         screen("""

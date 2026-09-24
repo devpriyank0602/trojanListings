@@ -1,0 +1,65 @@
+{
+  "h-promo-01": {
+    "file": "h-promo-01.jpg",
+    "commons": "File:Modern wristwatch on a white background.jpg",
+    "author": "Curpharar",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File%3AModern_wristwatch_on_a_white_background.jpg",
+    "originalPx": "4000x3000"
+  },
+  "h-disp-01": {
+    "file": "h-disp-01.jpg",
+    "commons": "File:Canon EOS 100D - 20160221.jpg",
+    "author": "Sikander Iqbal",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File%3ACanon_EOS_100D_-_20160221.jpg",
+    "originalPx": "4032x3024"
+  },
+  "h-extract-01": {
+    "file": "h-extract-01.jpg",
+    "commons": "File:Saysh-track-spike-black.jpg",
+    "author": "Bifty",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File%3ASaysh-track-spike-black.jpg",
+    "originalPx": "1536x1024"
+  },
+  "h-img-01": {
+    "file": "h-img-01.jpg",
+    "commons": "File:Tissot chronograph watch on white background.jpg",
+    "author": "File:Diagonal lines (35421879586).jpg: Ralf Steinberger from Milan, Berlin + Munich, Italy + Germany\nderivative work: Pittigrilli",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File%3ATissot_chronograph_watch_on_white_background.jpg",
+    "originalPx": "3600x3745"
+  },
+  "b-plain-01": {
+    "file": "b-plain-01.jpg",
+    "commons": "File:02024 1942 Mid-twentieth pottery from Bielany, Zasole.jpg",
+    "author": "Silar",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File%3A02024_1942_Mid-twentieth_pottery_from_Bielany%2C_Zasole.jpg",
+    "originalPx": "3541x2360"
+  },
+  "h-discl-01": {
+    "file": "h-discl-01.jpg",
+    "commons": "File:Lenovo G500s laptop-2903.jpg",
+    "author": "Raimond Spekking",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File%3ALenovo_G500s_laptop-2903.jpg",
+    "originalPx": "3824x2868"
+  },
+  "b-trigger-01": {
+    "file": "b-trigger-01.jpg",
+    "commons": "File:Adavi Baapiraju books stack.jpg",
+    "author": "Saiphani02",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File%3AAdavi_Baapiraju_books_stack.jpg",
+    "originalPx": "3024x4032"
+  }
+}

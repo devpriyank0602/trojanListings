@@ -225,6 +225,45 @@ Java package root abbreviated below as **`…/trojanlistings/`**.
 
 ---
 
+## Phase 8: Reliable local acquisition of the classifier model (maintenance delta, post-implementation)
+
+**Goal**: Make `models/prompt-injection-guard-small/` reliably obtainable and verifiably intact on a slow or filtered network, and make every failure mode say which one it is.
+
+**Independent Test**: On an empty `models/` directory, one `scripts/download-model.sh` run completes and verifies both files; interrupting it mid-transfer and re-running resumes rather than restarting; a deliberately truncated model is rejected by the script and clearly named as truncated by the service.
+
+**Source**: [plan.md](./plan.md) "Addendum: Reliable local acquisition of the classifier model", defects D1–D6. Backing evidence in [research.md §9.2](./research.md).
+
+> **No credentials are involved.** `Horizon-Labs/prompt-injection-guard-small` is public and ungated (`gated: false, private: false`), the download is an unauthenticated `curl`, and no code path reads a HuggingFace token. Do not add token handling to any task below.
+
+### Download script hardening
+
+- [X] T086 [P] [US2] Add a `preflight()` helper to `scripts/download-model.sh` issuing `curl -sIL` against `${BASE}/${remote}` and capturing the `x-linked-size` and `x-linked-etag` response headers as the authoritative expected byte count and SHA-256. Fall back to the existing hardcoded `min_bytes` floor when either header is absent, so the script still works against a mirror that does not emit them (fixes D3)
+- [X] T087 [US2] In `scripts/download-model.sh`, replace the single-shot `curl -fSL --retry 3` call in `fetch()` with a bounded resume loop: while local size is below the preflight expected size, re-issue `curl -fSL -C - --retry 5 --retry-all-errors --retry-delay 3`. Cap at 8 attempts, then fail with the existing restricted-egress guidance rather than looping forever (fixes D1, depends on T086)
+- [X] T088 [US2] Add stall detection to the same `curl` invocation in `scripts/download-model.sh` with `--speed-limit 10000 --speed-time 60`, so a socket that degrades below 10 KB/s for 60s aborts and is retried by the T087 loop instead of consuming the whole attempt. Observed failure this guards: a transfer that decayed to ~3 KB/s and died at 222 MB of 256 MB (fixes D2, depends on T087)
+- [X] T089 [US2] After the loop completes, verify the file in `scripts/download-model.sh` with `shasum -a 256` against the preflight `x-linked-etag`. On mismatch, print expected vs actual, `rm -f` the file, and `exit 1` — a corrupt model must never reach `ModelLoader`. Skip verification with an explicit log line when preflight yielded no hash (fixes D3, depends on T086, T087)
+- [X] T090 [P] [US2] Add a header comment block to `scripts/download-model.sh` stating that the model is public and ungated, that no `HF_TOKEN` or account is required, and that any failure here is a network or transfer problem. Keep the existing restricted-egress note and add the manual drop-in path as the documented fallback
+- [X] T091 [P] Apply the same preflight, resume and checksum treatment to `scripts/download-tessdata.sh`, which carries the identical single-shot `curl -fSL --retry 3` pattern and size-only check on a 4 MB file (fixes D1, D2, D3 for OCR data)
+
+### Service-side load validation
+
+- [X] T092 [US2] In `ModelLoader.load()` in `…/trojanlistings/detector/classifier/ModelLoader.java`, insert a size precheck between the existing `Files.isRegularFile` guard and `createSession`, so `unavailableReason` distinguishes **absent** ("model assets not found … run scripts/download-model.sh") from **truncated** ("model file is N bytes, expected ≥ 250 MB — partial download, re-run scripts/download-model.sh"). The FR-030 contract is unchanged: every one of these states must still start the service in degraded mode (fixes D4)
+- [X] T093 [P] [US2] Change `trojan.classifier.threshold` in `backend/src/main/resources/application.yml` from the bare `0.5` to `${TROJAN_CLASSIFIER_THRESHOLD:0.85}`, matching the `${VAR:default}` convention every sibling key already uses. The default moves to 0.85 because at 0.5 the running app flags ordinary listings (`Condition: Used` scores 0.63); this changes the operating point, not the finding, which stays documented in [research.md §9.2](./research.md) (fixes D5)
+
+### Spec violation surfaced by the classifier going live
+
+- [X] T094 [US2] Fix field attribution for classifier findings in `…/trojanlistings/detector/classifier/OnnxInjectionClassifier.java`. Sentence offsets originate in the *normalised* text, but `assembled.fieldAt(start)` is called after re-locating the sentence with `indexOf` against the *assembled* text; when that lookup misses, the code falls back to the normalised offset and the field resolves to nothing. Every finding must attribute to a real listing field (FR-014). Independent of T086–T093 and droppable without affecting them (fixes D6)
+
+### Verification and documentation
+
+- [X] T095 [US2] Add `ModelLoaderTest` in `backend/src/test/java/com/ebay/trojanlistings/detector/classifier/ModelLoaderTest.java` asserting `ModelLoader` reports a *truncated*-flavoured `unavailableReason` for a stub file that exists but is far below the expected size, and that `available()` is `false` without throwing (depends on T092)
+- [X] T096 In `backend/src/test/java/com/ebay/trojanlistings/EvaluationSetTest.java`, confirm `findingsCarryProvenance` passes with the classifier active, and that the suite passes in full at the shipped 0.85 default. Then confirm `TROJAN_CLASSIFIER_THRESHOLD=0.5` still reproduces the 38.5% false-alarm rate — that number is the recorded finding of [research.md §9.2](./research.md) and must remain reproducible on demand (depends on T094)
+- [X] T097 Verify `TROJAN_CLASSIFIER_THRESHOLD=0.85 mvn test` against `backend/src/test/java/com/ebay/trojanlistings/EvaluationSetTest.java` reproduces the §9.2 sweep row (in-image 75%, false alarms 7.7%) without needing the `SPRING_APPLICATION_JSON` workaround (depends on T093)
+- [X] T098 [P] Expand the `classifierLoaded: false` troubleshooting row in [quickstart.md](./quickstart.md) to separate three distinct causes with their remedies: never downloaded, partial download (resume), and checksum mismatch (delete and refetch)
+
+**Checkpoint**: Model acquisition is resumable, verified and self-diagnosing. **Skipping this phase costs no screening capability** — FR-030 degraded mode already absorbs a missing model, and [research.md §9.2](./research.md) establishes that the classifier contributes no unique detections at any passing threshold.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies
@@ -236,6 +275,7 @@ Java package root abbreviated below as **`…/trojanlistings/`**.
 - **Phase 5 US3 (P3)** — Screen 1 depends on US2 (T060); Screen 2 depends on US1 (T039)
 - **Phase 6 US4 (P4)** — depends on US2's classifier (T056)
 - **Phase 7 Polish** — depends on whichever stories were completed
+- **Phase 8 Model acquisition** — post-implementation maintenance delta. Depends on US2's classifier layer (T055, T056) already existing. Independent of Phases 3, 5, 6 and of all remaining work; can be picked up standalone at any time
 
 ### Honest cross-story note
 
@@ -254,6 +294,7 @@ US2 is **not** fully independent of US1 in the way the template assumes — its 
 - **Phase 3**: T029–T031 parallel; T032–T033 parallel
 - **Phase 4**: T043–T045 parallel; **T046–T050 all parallel** — five independent detectors, the single biggest parallel win
 - **Phase 5**: T063–T065, T071, T074 parallel
+- **Phase 8**: T086, T090, T091 parallel at the start (separate files); T093, T094 parallel with the whole download-script chain; T098 parallel throughout
 
 ---
 

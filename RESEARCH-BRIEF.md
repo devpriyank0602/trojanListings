@@ -368,14 +368,14 @@ External:
 
 The brief above was turned into a working system through the Spec Kit workflow: `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`. Two clarification rounds ran — one on the detection architecture (5 questions), one on the UI (5 more questions) — each resolved against real internal precedent or a real published standard rather than guessed, and each answer is recorded verbatim in `specs/001-listing-injection-defense/spec.md` under **Clarifications**.
 
-**What shipped, in one line:** a locally hosted web app — React frontend, Spring Boot backend — that (1) screens a seller listing across four independent detection layers and returns TROJAN/CLEAN with the exact responsible span, and (2) replays a 38-fixture adversarial corpus against a vision-capable agent to produce the attack-success-rate the original brief said didn't exist.
+**What shipped, in one line:** a locally hosted web app — React frontend, Spring Boot backend — that (1) screens a seller listing across four independent detection layers and returns TROJAN/CLEAN with the exact responsible span, and (2) replays an adversarial corpus against a vision-capable agent to produce the attack-success-rate the original brief said didn't exist.
 
 ## A2. Final architecture
 
 ```
 backend/   Java 17 · Spring Boot 3.2 · ONNX Runtime (in-process) · Tesseract CLI
 frontend/  React 18 · Vite · TypeScript
-corpus/    38 fixtures (25 hostile, 13 benign controls) + 6 rendered attack images
+corpus/    7 fixtures (5 hostile, 2 benign controls) + HD product photos (CREDITS.json)
 ```
 
 **Detector — four layers, in fixed order, every request:**
@@ -388,6 +388,8 @@ corpus/    38 fixtures (25 hostile, 13 benign controls) + 6 rendered attack imag
 **Harness** — replays every fixture against an external vision-capable agent, grades compliance with **deterministic, mechanically-checkable conditions** (never an LLM-as-judge — a judge model reading a response produced under attack is itself exposed to the same payload), and persists every trial to append-only JSONL the instant it completes.
 
 ## A3. Measured results
+
+> **Superseded.** The 38-fixture corpus behind this section was deleted and replaced with seven fixtures (five hostile, two benign). These numbers are **no longer reproducible from the repository**; they are kept because they are the largest-sample measurement taken and because A4's conclusions rest on them. Current numbers, and a full account of what the replacement cost, are in A3.1 and research.md §9.4.
 
 Produced by `mvn test` (`EvaluationSetTest`, `ComparisonTest`) against the full 38-fixture corpus:
 
@@ -408,14 +410,35 @@ Produced by `mvn test` (`EvaluationSetTest`, `ComparisonTest`) against the full 
 | **Obfuscated** | **100%** | **25%** |
 | **In image** | **75%** | **0%** |
 
-This table is the headline finding, and it was produced **with the ONNX classifier never loaded** — see A4. The structural layer, which no general-purpose tool in the survey carries, is what separates the two columns.
+This table is the headline finding, and it was produced by the **structural + pattern layers only** — see A4. The structural layer, which no general-purpose tool in the survey carries, is what separates the two columns. The ONNX classifier has since been downloaded and measured; it fails the false-alarm bar and adds no unique catches, so these remain the reported numbers.
+
+### A3.1 Current results — the seven-fixture corpus
+
+The corpus was subsequently replaced with five hostile fixtures (one per attack technique, each using a different concealment method) and two benign controls, all carrying real HD product photography from Wikimedia Commons with per-file attribution. Shipped default configuration, all four layers, classifier at 0.85:
+
+| Metric | Result | Bar |
+|---|---|---|
+| Catch rate, text fixtures | **100%** (4/4) | ≥80% |
+| Catch rate, in-image fixtures | **100%** (1/1) | ≥70% |
+| False-alarm rate, benign controls | 50% (1/2) — not a meaningful measurement | ≤10% |
+| Screening latency | **~31 ms** | <3000 ms |
+
+These denominators are too small to carry statistical weight, and the honest claim is that the detector handles one worked example of each technique. Two benign controls quantise the false-alarm rate to 50-point steps, so the 10% cap is unsatisfiable unless every layer is silent on both; the single flag is the classifier scoring a genuine book bundle *about* prompt injection at 0.87. `EvaluationSetTest` now asserts the part that is not a sampling artefact — that no rule-based layer fires on a benign listing.
+
+The comparison against general-purpose screening above cannot be reproduced on this corpus. What does carry over, because it is categorical rather than statistical, is the layer attribution: **all five hostile fixtures are caught without the classifier**, independently confirming the A4 finding from a freshly constructed corpus.
+
+The replacement also surfaced a real precision bug. The classifier was being fed the `[SPECIFIC:...]` field markers that the assembler inserts for the structural layer's benefit; the two-word benign item specific `"[SPECIFIC:Subject] Computing"` scored **0.91**. Those markers are now stripped before scoring.
 
 ## A4. Where reality diverged from the plan
 
 Two genuine deviations, kept visible rather than quietly edited over:
 
 - **OCR: Tess4J → Tesseract CLI.** The plan chose the Tess4J JNA bindings; on the actual Apple Silicon build machine its bundled native (`darwin-x86-64/libtesseract.dylib`) doesn't exist for `arm64` and fails outright. Rewritten to shell out to a locally installed `tesseract` binary instead — this was already the documented fallback in the research, just promoted to primary. A second, more important bug surfaced alongside it: the original health probe reported `ocrAvailable: true` merely because a Tesseract *object* constructed without error, before the native call that would actually fail. Fixed by making the probe genuinely invoke the binary.
-- **The ONNX classifier never actually loaded on this network.** `scripts/download-model.sh` fails with an HTTP 403 against HuggingFace's blob CDN, while the metadata API for the same model responds normally — consistent with egress filtering on binary downloads rather than a wrong model choice (the same network later also blocked outbound SSH to GitHub on both port 22 and 443, while plain HTTPS git worked fine). Every number in A3 was therefore produced by the structural + pattern layers alone, which is disclosed rather than hidden — if anything it strengthens the result, since 100% text catch and 0% false alarms didn't need the machine-learning layer at all. `GET /api/health` reports `classifierLoaded: false` honestly throughout, and the UI shows this as a plain "unavailable" state rather than pretending it isn't there.
+- **The ONNX classifier was blocked for most of the build, then measured and found harmful.** For the whole implementation session `scripts/download-model.sh` failed with an HTTP 403 against HuggingFace's blob CDN while the metadata API for the same model responded normally — consistent with egress filtering on binary downloads rather than a wrong model choice (the same network later also blocked outbound SSH to GitHub on both port 22 and 443, while plain HTTPS git worked fine). No credentials were ever involved: the model is public and ungated, the download is an unauthenticated `curl`, and nothing in the codebase reads a HuggingFace token. `GET /api/health` reported `classifierLoaded: false` honestly throughout, and the UI showed this as a plain "unavailable" state rather than pretending it wasn't there.
+
+  On a later network the download succeeded and the layer could finally be evaluated. **It fails the spec's false-alarm bar.** With the classifier as the only changed variable, benign false alarms go from 0% (0/13) to 38.5% (5/13) against a 10% cap, while text catch stays at 100% either way. The five listings it wrongly flags are exactly the hard negatives the corpus was designed around — a cookbook genuinely titled *Ignore All Previous Diets*, a prompt-engineering book bundle, a Cyrillic listing, and a switch with a base64-shaped serial number. A threshold sweep shows no escape: the one fixture the classifier uniquely catches scores 0.64, below three of the false positives, so every threshold that satisfies the false-alarm cap also erases the classifier's only unique contribution. The shipped default was moved from the model's natural 0.5 to **0.85**, not to rescue the layer but to stop it doing harm — at 0.5 the running application flags an ordinary camera listing as hostile, because the item specific `Condition: Used` scores 0.63. The finding is preserved in the documentation and in the sweep rather than in a deliberately failing test.
+
+  This turns an unavoidable caveat into an actual result: on realistic marketplace listings a general-purpose prompt-injection classifier is not just unnecessary, it is *actively harmful to precision*, because real listings legitimately contain the vocabulary it keys on. People sell books about prompt injection.
 
 ## A5. The UI, across several passes
 

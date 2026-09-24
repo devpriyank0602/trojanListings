@@ -73,10 +73,11 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
     reader.readAsDataURL(file)
   }
 
-  function loadSample(id: string) {
+  async function loadSample(id: string) {
     const s = samples.find(x => x.id === id)
     if (!s) return
-    onChange({
+
+    const draftFromSample: ListingDraft = {
       title: s.listing.title,
       description: s.listing.description,
       category: '',
@@ -84,7 +85,16 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
       specifics: Object.entries(s.listing.itemSpecifics ?? {}).map(([key, value]) => ({ key, value })),
       imageBase64: null,
       imageName: s.listing.imagePath,
-    })
+    }
+    onChange(draftFromSample)
+
+    // Pull the fixture's real photo from the corpus so the in-image technique is
+    // demonstrable without hunting for a PNG on disk mid-demo. Applied after the
+    // text so the form fills instantly and the photo arrives a beat later.
+    if (s.hasImage) {
+      const dataUrl = await api.sampleImage(s.id)
+      if (dataUrl) onChange({ ...draftFromSample, imageBase64: dataUrl })
+    }
   }
 
   const grouped = samples.reduce<Record<string, Sample[]>>((acc, s) => {
@@ -213,10 +223,12 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
           </div>
         </div>
 
+        {/* Only reachable if the corpus photo could not be fetched -- normally the
+            sample loader fills the photo box itself. */}
         {draft.imageName && !draft.imageBase64 && (
           <p className="note" style={{ marginTop: 10 }}>
-            This sample has a photo at <code>{draft.imageName}</code>. Drop it into the
-            photo box above to screen the image too.
+            This sample has a photo at <code>{draft.imageName}</code> that could not be
+            loaded. Drop it into the photo box above to screen the image too.
           </p>
         )}
       </div>

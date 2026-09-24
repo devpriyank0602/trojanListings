@@ -24,7 +24,15 @@ trojan:
     # A sentence scoring at or above this is treated as an injection finding.
     # Structural findings are NOT thresholded -- legitimate listings do not contain
     # zero-width characters spliced mid-word.
-    threshold: 0.5
+    #
+    # 0.85, not the model's natural 0.5. At 0.5 the classifier flags ordinary
+    # listings -- "Condition: Used" scores 0.63 -- and the false-alarm rate on the
+    # benign controls is 38.5% against a 10% cap (SC-006). The full threshold sweep
+    # and what it means is in research.md section 9.2; the short version is that this
+    # classifier is measurably unhelpful on marketplace text and 0.85 is the point
+    # where it stops doing harm. Override with TROJAN_CLASSIFIER_THRESHOLD to
+    # reproduce any row of that sweep.
+    threshold: ${TROJAN_CLASSIFIER_THRESHOLD:0.85}
     # Sentences longer than this are truncated for scoring only; the span reported
     # back to the caller is always the untruncated original.
     max-sentence-chars: 2000

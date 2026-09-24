@@ -2,6 +2,7 @@ package com.ebay.trojanlistings.corpus;
 
 import com.ebay.trojanlistings.detector.ConcealmentTechnique;
 import com.ebay.trojanlistings.detector.ListingAssembler;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +21,26 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>These are not stylistic preferences. Every rate the project reports is computed
  * over this corpus, so a gap here silently changes the denominator of the headline
- * finding. SC-001, SC-006 and SC-007 are asserted directly.
+ * finding.
+ *
+ * <p><b>These assertions were deliberately weakened on 2026-09-24</b>, when the
+ * 38-fixture evaluation corpus was replaced by a 7-fixture demonstration corpus
+ * (5 hostile, 2 benign) at the project owner's instruction. The bars below no longer
+ * enforce SC-001 (>=25 hostile), SC-006 (>=10 benign, >=3 trigger-like) or SC-007
+ * (every concealment technique labelled), because seven fixtures cannot satisfy them.
+ *
+ * <p>What this costs is worth stating plainly rather than burying in a diff:
+ * <ul>
+ *   <li>Rates over 7 fixtures have coarse resolution. A single benign control now moves
+ *       the false-alarm rate by 50 percentage points, so the number is an illustration
+ *       rather than a measurement.</li>
+ *   <li>Per-technique catch rates are single-fixture observations, not rates.</li>
+ *   <li>INVISIBLE_MARKUP is no longer a labelled concealment. It is still physically
+ *       present, stacked inside {@code h-extract-01}, but nothing asserts that.</li>
+ * </ul>
+ *
+ * <p>The superseded corpus remains in git history and is the basis of every number
+ * published before that date. See research.md §9.4.
  */
 class CorpusValidationTest {
 
@@ -32,10 +52,10 @@ class CorpusValidationTest {
     private static List<Fixture> benign() { return LOADER.benignControls(); }
 
     @Test
-    @DisplayName("SC-001: at least 25 hostile fixtures")
-    void atLeast25Hostile() {
-        assertTrue(hostile().size() >= 25,
-                "Need >=25 hostile fixtures, found " + hostile().size());
+    @DisplayName("At least 5 hostile fixtures (SC-001's >=25 no longer holds -- see class note)")
+    void atLeastFiveHostile() {
+        assertTrue(hostile().size() >= 5,
+                "Need >=5 hostile fixtures, found " + hostile().size());
     }
 
     @Test
@@ -56,7 +76,14 @@ class CorpusValidationTest {
                 "Missing goals: " + missing(EnumSet.allOf(AttackerGoal.class), present));
     }
 
+    /**
+     * Superseded by the 7-fixture corpus: with four techniques across five hostile
+     * fixtures, at most one technique can carry two goals. Retained as a disabled
+     * record of the bar the 38-fixture corpus met, so restoring that corpus restores
+     * the check rather than requiring it be reinvented.
+     */
     @Test
+    @Disabled("7-fixture corpus cannot satisfy this; see class note")
     @DisplayName("SC-001: every technique carries at least two distinct goals")
     void techniquesCoverMultipleGoals() {
         Map<AttackTechnique, Set<AttackerGoal>> byTechnique = hostile().stream()
@@ -73,31 +100,31 @@ class CorpusValidationTest {
     }
 
     @Test
-    @DisplayName("SC-007: every concealment technique has at least one fixture")
-    void everyConcealmentTechniqueCovered() {
+    @DisplayName("At least four of the five concealment techniques are labelled")
+    void mostConcealmentTechniquesCovered() {
         Set<ConcealmentTechnique> present = hostile().stream()
                 .map(Fixture::concealment).collect(Collectors.toSet());
+        present.remove(ConcealmentTechnique.NONE);
 
-        Set<ConcealmentTechnique> required = EnumSet.allOf(ConcealmentTechnique.class);
-        required.remove(ConcealmentTechnique.NONE);   // NONE means "no concealment used"
-
-        assertTrue(present.containsAll(required),
-                "SC-007 requires a fixture per concealment technique. Missing: "
-                        + missing(required, present));
+        // Full SC-007 coverage needs five labels and the corpus has four non-IN_IMAGE
+        // hostile fixtures to carry them. INVISIBLE_MARKUP is the one that lost its
+        // label; it is still stacked inside h-extract-01.
+        assertTrue(present.size() >= 4,
+                "Expected >=4 labelled concealment techniques, found " + present);
     }
 
     @Test
-    @DisplayName("SC-006: at least 10 benign controls, at least 3 of them trigger-like")
+    @DisplayName("At least 2 benign controls, at least 1 of them trigger-like")
     void benignControlsPresent() {
-        assertTrue(benign().size() >= 10,
-                "Need >=10 benign controls, found " + benign().size());
+        assertTrue(benign().size() >= 2,
+                "Need >=2 benign controls, found " + benign().size());
 
         long triggerLike = benign().stream()
                 .filter(f -> f.note().contains("TRIGGER-LIKE"))
                 .count();
-        assertTrue(triggerLike >= 3,
-                "Need >=3 trigger-like benign controls to make the false-alarm rate "
-                        + "meaningful, found " + triggerLike);
+        assertTrue(triggerLike >= 1,
+                "Need >=1 trigger-like benign control, else the false-alarm rate says "
+                        + "nothing about vocabulary-driven over-flagging, found " + triggerLike);
     }
 
     @Test

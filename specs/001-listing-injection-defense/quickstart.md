@@ -219,7 +219,10 @@ curl -s localhost:8080/api/health | jq '.classifierLoaded, .ocrAvailable'
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `classifierLoaded: false` | Model missing | Re-run `./scripts/download-model.sh`; check `models/prompt-injection-guard-small/model_quantized.onnx` |
+| `classifierLoaded: false`, reason says **not found** | Model never downloaded | Run `./scripts/download-model.sh`. **No HuggingFace token is needed** — the model is public and ungated, so this is never an auth problem |
+| `classifierLoaded: false`, reason says **partial download** | Transfer interrupted; `model_quantized.onnx` is well under its ~256 MB | Re-run `./scripts/download-model.sh` — it resumes from where it stopped rather than restarting |
+| `download-model.sh` exits with **checksum verification** failure | Corrupt transfer; bytes do not match the upstream SHA-256 | The script already deleted the bad file. Just run it again |
+| `download-model.sh` gives HTTP 403 on the blob but the metadata API works | Restricted egress on large binary downloads, not a credential problem | Fetch the two files on an unrestricted machine and drop them into `models/prompt-injection-guard-small/` |
 | `UnsatisfiedLinkError` on ONNX | JDK/native mismatch on Windows | Use Temurin 17 or Zulu 17 |
 | Native memory climbing during a run | `OnnxMap` not closed | Every inference must use try-with-resources — see research.md §2 |
 | `ocrAvailable: false` on macOS arm64 | Tess4J JNA extraction | Verify `LoadLibs.extractTessResources`; fall back to the Tesseract CLI path |

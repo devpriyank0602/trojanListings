@@ -38,6 +38,25 @@ public class ListingAssembler {
             }
             return "unknown";
         }
+
+        /**
+         * The field a whole span came from, resolved by overlap rather than by its
+         * first character.
+         *
+         * <p>Sentence-level findings routinely start on the structural marker that
+         * introduces a field -- {@code "[SPECIFIC:Condition] Used"} -- and markers sit
+         * outside every segment by design, so {@link #fieldAt(int)} on the start offset
+         * returns {@code "unknown"} for precisely the findings that do have a real field
+         * behind them (FR-014).
+         */
+        public String fieldOverlapping(int startOffset, int endOffset) {
+            for (Segment s : segments) {
+                if (startOffset < s.endOffset() && endOffset > s.startOffset()) {
+                    return s.sourceField();
+                }
+            }
+            return "unknown";
+        }
     }
 
     public AssembledListing assemble(Listing listing) {

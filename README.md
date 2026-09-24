@@ -35,26 +35,35 @@ Two things, both running locally with no dependency on any internal eBay service
 
 ## Results
 
-From `mvn test` on the 38-fixture evaluation set (25 hostile, 13 benign controls):
+The corpus now holds **seven fixtures** — five hostile, one per attack technique, and
+two benign controls. From `mvn test` with the shipped default configuration:
 
 | Metric | Result | Bar |
 |---|---|---|
-| Catch rate, text fixtures | **100%** (21/21) | ≥80% |
-| Catch rate, in-image fixtures | **75%** (3/4) | ≥70% |
-| False-alarm rate, benign controls | **0%** (0/13) | ≤10% |
-| Single-listing screening latency | **<5 ms** | <3000 ms |
+| Catch rate, text fixtures | **100%** (4/4) | ≥80% |
+| Catch rate, in-image fixtures | **100%** (1/1) | ≥70% |
+| False-alarm rate, benign controls | 50% (1/2) — see the caveat below | ≤10% |
+| Single-listing screening latency | **~31 ms** | <3000 ms |
 
-### The gap against general-purpose screening
+**Read the denominators.** One fixture per technique is a worked example, not a
+measurement; these percentages carry very little statistical weight. The 50%
+false-alarm figure is worse than it looks in one direction and less meaningful in
+another: two controls admit only 0%, 50% or 100%, so a 10% cap cannot be satisfied
+unless every layer is silent on both. The single flag is the ONNX classifier scoring a
+genuine book bundle *about* prompt injection at 0.87. No rule-based layer fires on
+either control, which is what the test now asserts.
 
-| Technique | Listing-aware | General-purpose |
-|---|---|---|
-| Free text | 100% | 100% |
-| Structured field | 100% | 100% |
-| **Obfuscated** | **100%** | **25%** |
-| **In image** | **75%** | **0%** |
+The one result that does survive the small sample, because it is categorical rather
+than statistical: **all five hostile fixtures are caught without the classifier.** It
+contributes no unique detection and is the sole source of the only false alarm.
 
-General-purpose prompt-injection tooling handles plain-text attacks perfectly well and
-leaves the listing-specific ones on the table. That gap is the project.
+An earlier 38-fixture corpus (25 hostile, 13 benign) was deleted and replaced. Its
+numbers — 100% text, 75% in-image, 0% false alarms, and the comparison against
+general-purpose screening — are **no longer reproducible from this repository**. They
+are preserved, clearly marked as superseded, in
+[research.md §11](specs/001-listing-injection-defense/research.md), with the full
+account of what the replacement cost in
+[§9.4](specs/001-listing-injection-defense/research.md).
 
 ## Quick start
 
@@ -106,7 +115,7 @@ rather than hiding it:
 
 | Missing | Behaviour |
 |---|---|
-| ONNX classifier | Structural + pattern layers still screen. `mode: DEGRADED_NO_CLASSIFIER`, amber banner in the UI. **The 100% text catch rate above was measured in this mode** — the structural layer does the work. |
+| ONNX classifier | Structural + pattern layers still screen. `mode: DEGRADED_NO_CLASSIFIER`, amber banner in the UI. **Every hostile fixture is caught in this mode** — the structural layer does the work. The classifier ships at threshold `0.85`, not the model's natural `0.5`: at `0.5` it flags ordinary listings outright, and on the former 38-fixture corpus it pushed false alarms from 0% to 38.5% while adding no unique catches at any passing threshold. Full sweep in [research.md §9.2](specs/001-listing-injection-defense/research.md). |
 | Tesseract | Text still screened. Images reported `NOT_SCREENED`, explicitly **not** clean. |
 | `AGENT_API_KEY` | Screening and all recorded results unaffected. Only starting a *new* measurement run is unavailable (503, not 500). |
 
@@ -115,7 +124,7 @@ rather than hiding it:
 ```
 backend/    Java 17 · Spring Boot 3.2 · ONNX Runtime (in-process) · Tesseract CLI
 frontend/   React 18 · Vite · TypeScript
-corpus/     38 fixtures (JSON) + rendered attack images
+corpus/     7 fixtures (JSON) + HD product photos, credited in images/CREDITS.json
 scripts/    model + OCR asset download, fixture image rendering
 specs/      spec, plan, research, data model, contracts, tasks
 ```

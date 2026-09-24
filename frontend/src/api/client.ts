@@ -148,6 +148,31 @@ export const api = {
 
   health: () => request<Health>('/api/health'),
   samples: () => request<{ samples: Sample[] }>('/api/samples'),
+
+  /**
+   * The corpus photo for a fixture, as a data URL ready for the photo box.
+   *
+   * Returns null rather than throwing when the fixture has no photo, because
+   * "this sample is text-only" is an ordinary outcome of loading a sample, not an
+   * error worth interrupting the reviewer for.
+   */
+  sampleImage: async (id: string): Promise<string | null> => {
+    const path = `/api/samples/${encodeURIComponent(id)}/image`
+    try {
+      const res = await fetch(path)
+      if (!res.ok) return null
+      const blob = await res.blob()
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(blob)
+      })
+    } catch {
+      return null
+    }
+  },
+
   listRuns: () => request<{ runs: RunSummary[] }>('/api/runs'),
   report: (runId: string) => request<ExposureReport>(`/api/runs/${runId}/report`),
   trials: (runId: string, params: Record<string, string> = {}) => {
