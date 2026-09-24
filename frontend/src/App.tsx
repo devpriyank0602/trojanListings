@@ -43,6 +43,17 @@ export default function App() {
           ⚗ Synthetic research data
         </span>
 
+        {/*
+          Event context, requested in the UI. NOT the eBay logo/wordmark: this
+          repository is public, and embedding eBay's actual trademarked mark into a
+          versioned public asset is the exact exposure the "marketplace-inspired, not
+          a replica" decision (see ui-contract.md, Design language) was made to avoid.
+          Text-only attribution instead -- same information, zero trademark risk.
+        */}
+        <span className="event-chip" title="Built for the eBay Bengaluru AI Hackathon 2026">
+          🏆 eBay Bengaluru AI Hackathon 2026
+        </span>
+
         <nav className="nav">
           <button className={tab === 'screen' ? 'active' : ''} onClick={() => setTab('screen')}>
             Screen a listing

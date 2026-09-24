@@ -1,19 +1,20 @@
 import type { ScreenResponse } from '../api/client'
+import { ThreatGauge } from './ThreatGauge'
 
 /**
- * The TROJAN / CLEAN badge with a threat gauge (FR-019, FR-047).
+ * The TROJAN / CLEAN badge with a compass-style threat gauge (FR-019, FR-047).
  *
  * Colour never carries the meaning alone: the verdict word and an icon are always
- * present, and the gauge always renders its numeral beside the bar. A viewer who
- * cannot distinguish red from green still gets the full answer (SC-017).
+ * present, the gauge carries SAFE/THREAT text labels on its own face, and the
+ * numeral is always rendered beside it. A viewer who cannot distinguish red from
+ * green still gets the full answer from the words alone (SC-017).
  */
 export function VerdictPanel({ result }: { result: ScreenResponse }) {
   const trojan = result.verdict === 'TROJAN'
-  const pct = Math.round(result.confidence * 100)
 
   return (
-    <div className={`verdict ${trojan ? 'trojan' : 'clean'} rise`} role="status">
-      <div>
+    <div className={`verdict ${trojan ? 'trojan' : 'clean'} materialize`} role="status">
+      <div className="verdict-text">
         <div className="badge">{trojan ? '⚠ TROJAN' : '✓ CLEAN'}</div>
         <div className="meta">
           {trojan ? (
@@ -29,14 +30,7 @@ export function VerdictPanel({ result }: { result: ScreenResponse }) {
         </div>
       </div>
 
-      <div className="gauge">
-        <div className="label">Threat score</div>
-        <div className="value">{result.confidence.toFixed(2)}</div>
-        <div className="track" role="img"
-             aria-label={`Threat score ${result.confidence.toFixed(2)} out of 1.00`}>
-          <span style={{ width: `${pct}%` }} />
-        </div>
-      </div>
+      <ThreatGauge value={result.confidence} trojan={trojan} />
     </div>
   )
 }

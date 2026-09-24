@@ -33,7 +33,7 @@
   /* Decorative-only neon set — used exclusively in the ambient background layer and
      glow halos. Never applied to text, icons or anything that carries meaning. */
   --neon-pink:   #FF2FB0;
-  --neon-cyan:   #21E6E6;
+  --neon-green:  #1FE38A;
   --neon-violet: #8A3CFF;
   --neon-lime:   #C6FF3D;
 
@@ -81,25 +81,28 @@ code, pre, .mono {
 
 .ambient-bg {
   position: fixed; inset: 0; z-index: -1; overflow: hidden;
-  background: radial-gradient(ellipse at top, #0B1330 0%, #060912 62%, #030408 100%);
+  background: radial-gradient(ellipse at top, #1A0F33 0%, #0B0714 60%, #030408 100%);
 }
 
 .ambient-bg .blob {
   position: absolute; border-radius: 50%; filter: blur(70px);
-  opacity: .55; mix-blend-mode: screen;
+  opacity: .65; mix-blend-mode: screen;
 }
+/* Purple / pink / green — the explicit palette request. Each blob is oversized and
+   overlapping so the seams blend into each other rather than reading as three
+   separate spotlights, which is what makes it feel like one living backdrop. */
 .blob-a {
-  width: 620px; height: 620px; top: -180px; left: -120px;
+  width: 660px; height: 660px; top: -180px; left: -120px;
   background: radial-gradient(circle, var(--neon-violet), transparent 70%);
   animation: drift-a 22s ease-in-out infinite;
 }
 .blob-b {
-  width: 560px; height: 560px; top: 30%; right: -160px;
-  background: radial-gradient(circle, var(--neon-cyan), transparent 70%);
+  width: 600px; height: 600px; top: 30%; right: -160px;
+  background: radial-gradient(circle, var(--neon-green), transparent 70%);
   animation: drift-b 26s ease-in-out infinite;
 }
 .blob-c {
-  width: 500px; height: 500px; bottom: -200px; left: 28%;
+  width: 540px; height: 540px; bottom: -200px; left: 28%;
   background: radial-gradient(circle, var(--neon-pink), transparent 70%);
   animation: drift-c 30s ease-in-out infinite;
 }
@@ -137,8 +140,8 @@ code, pre, .mono {
 /* ============================ header ============================ */
 
 .topbar {
-  display: flex; align-items: center; gap: 16px;
-  padding: 0 24px; height: 62px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 24px; min-height: 62px;
   background: linear-gradient(97deg, #0B1E52 0%, #1B5FE0 45%, #3E7BFF 78%, #21E6E6 130%);
   background-size: 220% 220%;
   animation: aurora 14s ease infinite;
@@ -186,6 +189,19 @@ code, pre, .mono {
   backdrop-filter: blur(4px);
 }
 
+/* Event context — text-only, deliberately not the eBay logo/wordmark. See the note
+   in App.tsx for why: this repo is public, and the mark itself is trademarked. */
+.event-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(100deg, rgba(255,214,77,.22), rgba(255,154,224,.16));
+  border: 1px solid rgba(255,214,77,.5);
+  color: #FFF3CE;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .01em;
+  white-space: nowrap;
+  box-shadow: 0 0 14px rgba(255,214,77,.22);
+}
+
 .nav { display: flex; gap: 7px; margin-left: auto; }
 .nav button {
   border: 1px solid rgba(255,255,255,.32); background: rgba(255,255,255,.06); color: #fff;
@@ -204,26 +220,80 @@ code, pre, .mono {
 .split {
   display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
   gap: 22px; padding: 24px 24px 44px; align-items: start;
-  max-width: 1560px; margin: 0 auto;
+  max-width: 1560px; margin: 0 auto; position: relative;
 }
 @media (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
 
+/* ==================== "the screen goes active" ====================
+ * While a screening request is in flight, both panels light up and an energy
+ * beam sweeps from the seller-listing side toward the verdict side, so the
+ * result reads as arriving from the analysis rather than quietly popping in.
+ * Bounded entirely by how long `busy` is true, i.e. the real fetch duration
+ * (FR-046) -- there is no fixed-length animation pretending to be work.
+ * =================================================================== */
+.split.active .panel {
+  box-shadow: 0 0 0 1px rgba(185,140,255,.35), 0 0 40px rgba(123,47,247,.25), var(--shadow-md);
+}
+
+.energy-beam {
+  position: absolute; top: 50%; left: 4%; right: 4%; height: 3px; z-index: 5;
+  pointer-events: none; border-radius: 99px;
+  background: linear-gradient(90deg, transparent, #B98CFF, #F1409E, #FFB020, transparent);
+  box-shadow: 0 0 16px 3px rgba(241,64,158,.7), 0 0 30px 6px rgba(123,47,247,.4);
+  animation: beam-sweep 1.1s cubic-bezier(.3,.7,.3,1) infinite;
+}
+@keyframes beam-sweep {
+  0%   { clip-path: inset(0 100% 0 0); opacity: .2; }
+  8%   { opacity: 1; }
+  55%  { clip-path: inset(0 0 0 0); opacity: 1; }
+  100% { clip-path: inset(0 0 0 100%); opacity: .2; }
+}
+
+.panel-active {
+  animation: panel-active-glow 1.1s ease-in-out infinite;
+}
+@keyframes panel-active-glow {
+  0%,100% { box-shadow: 0 0 0 1px rgba(185,140,255,.25), 0 0 30px rgba(123,47,247,.18), var(--shadow-md); }
+  50%     { box-shadow: 0 0 0 1px rgba(241,64,158,.4),  0 0 46px rgba(241,64,158,.3),  var(--shadow-md); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .energy-beam, .panel-active { animation: none; }
+}
+
+/* Base panel — a vibrant, barely-there tint in the same purple/pink/green family as
+   the ambient background, instead of flat white. Deliberately kept THIS light: it
+   is still, luminance-wise, essentially white, so every contrast ratio verified
+   earlier for text on this panel (WCAG 2.2 AA, FR-047) is unaffected -- the nested
+   cards (verdict, finding, layer rows) already carry their own explicit light
+   backgrounds and are untouched by this. `.panel-cred` (the seller-listing side)
+   overrides all of this with its own dark theme, later in the file. */
 .panel {
-  background: var(--panel); border: 1px solid var(--line);
+  position: relative;
+  background: linear-gradient(165deg, #FAF7FF 0%, #FDF5FA 45%, #F3FBF7 100%);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-md), 0 0 0 1px rgba(255,255,255,.4) inset;
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(255,255,255,.5) inset;
   overflow: hidden;
 }
+/* A thin purple → pink → green accent strip along the top edge of every panel --
+   a small, cheap signal that ties every card in the app to the same live palette. */
+.panel::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 1;
+  background: linear-gradient(90deg, var(--neon-violet), var(--neon-pink), var(--neon-green));
+}
 .panel-head {
-  padding: 14px 18px; border-bottom: 1px solid var(--line-soft);
+  padding: 14px 18px; border-bottom: 1px solid rgba(138,60,255,.12);
   display: flex; align-items: center; gap: 10px;
-  background: linear-gradient(180deg,#FCFDFF,#F5F8FF);
+  background: linear-gradient(180deg, rgba(138,60,255,.06), rgba(31,227,138,.04));
 }
 .panel-head h2 {
   margin: 0; font-size: 11.5px; letter-spacing: .13em;
-  text-transform: uppercase; color: var(--muted); font-weight: 800;
+  text-transform: uppercase; font-weight: 800;
+  background: linear-gradient(90deg, #8A3CFF, #F1409E);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
-.panel-body { padding: 18px; }
+.panel-body { padding: 18px; position: relative; }
 
 /* Section cards — overline / title / body / actions anatomy */
 .section {
@@ -456,6 +526,62 @@ button.link:hover { text-decoration: underline; }
 .panel-cred button.primary:disabled { animation: none; }
 .panel-cred button.primary:disabled::after { display: none; }
 
+/* Per-section accent colours — the panel reads as lively rather than one flat
+   charcoal block, each card tinted differently while all four stay within the
+   same violet/pink/gold/cyan family used by the CTA. */
+.panel-cred .section-violet { border-left: 3px solid #7B2FF7; }
+.panel-cred .section-violet .overline { background: linear-gradient(90deg,#B98CFF,#8A6BFF); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.panel-cred .section-violet:hover { border-color: rgba(123,47,247,.5); box-shadow: 0 0 24px rgba(123,47,247,.16), 0 0 0 3px rgba(123,47,247,.08); }
+
+.panel-cred .section-pink { border-left: 3px solid #F1409E; }
+.panel-cred .section-pink .overline { background: linear-gradient(90deg,#FF7AD9,#F1409E); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.panel-cred .section-pink:hover { border-color: rgba(241,64,158,.5); box-shadow: 0 0 24px rgba(241,64,158,.16), 0 0 0 3px rgba(241,64,158,.08); }
+
+.panel-cred .section-gold { border-left: 3px solid #FFB020; }
+.panel-cred .section-gold .overline { background: linear-gradient(90deg,#FFD36E,#FFB020); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.panel-cred .section-gold:hover { border-color: rgba(255,176,32,.5); box-shadow: 0 0 24px rgba(255,176,32,.16), 0 0 0 3px rgba(255,176,32,.08); }
+
+.panel-cred .section-cyan { border-left: 3px solid #21E6E6; }
+.panel-cred .section-cyan .overline { background: linear-gradient(90deg,#7EF3F3,#21C7C7); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.panel-cred .section-cyan:hover { border-color: rgba(33,230,230,.5); box-shadow: 0 0 24px rgba(33,230,230,.16), 0 0 0 3px rgba(33,230,230,.08); }
+
+/* Realistic, tactile buttons: a glossy top-highlight strip plus a real press
+   depth (compressed shadow on :active), instead of a flat colour swap. */
+.icon-btn {
+  width: 34px; height: 34px; border-radius: 10px; position: relative; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px; cursor: pointer; transition: all .15s ease;
+}
+.icon-btn::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 45%;
+  background: linear-gradient(180deg, rgba(255,255,255,.16), transparent); pointer-events: none;
+}
+.icon-btn:active { transform: scale(.92); }
+
+.pill-add {
+  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  padding: 7px 14px; border-radius: 999px; margin-top: 2px;
+  background: rgba(185,140,255,.12); color: #C9A6FF;
+  border: 1px solid rgba(185,140,255,.35);
+  transition: all .15s ease;
+}
+.pill-add:hover { background: rgba(185,140,255,.2); box-shadow: 0 0 14px rgba(185,140,255,.3); transform: translateY(-1px); }
+.pill-add:active { transform: translateY(0) scale(.97); }
+
+/* Sample loader, restyled as a designed pill rather than a bare <select> */
+.sample-pill {
+  flex: 1; min-width: 200px; display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.16);
+  border-radius: 999px; padding: 3px 6px 3px 14px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.sample-pill:hover { border-color: rgba(255,211,110,.5); box-shadow: 0 0 16px rgba(255,211,110,.18); }
+.sample-pill-icon { font-size: 14px; flex: none; }
+.sample-pill select {
+  border: none; background: none; box-shadow: none !important; padding: 8px 6px;
+  color: #F3EFFF;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .panel-cred button.primary { animation: none; }
   .panel-cred button.primary::after { animation: none; }
@@ -464,7 +590,7 @@ button.link:hover { text-decoration: underline; }
 /* ============================ verdict ============================ */
 
 .verdict {
-  border-radius: 12px; padding: 19px; border: 1px solid; margin-bottom: 16px;
+  border-radius: 14px; padding: 20px 22px; border: 1px solid; margin-bottom: 18px;
   display: flex; align-items: center; gap: 18px;
   position: relative; overflow: hidden;
 }
@@ -484,39 +610,61 @@ button.link:hover { text-decoration: underline; }
   50%     { box-shadow: 0 0 0 1px rgba(217,48,37,.14), 0 14px 46px rgba(217,48,37,.4); }
 }
 
+/* The verdict is the payoff of the whole animation chain (beam → scan → this), so
+   it gets its own dedicated arrival beat: pop past full size then settle, with a
+   flash of light passing through, rather than the plain fade-up used elsewhere. */
+@keyframes materialize {
+  0%   { opacity: 0; transform: scale(.85) translateX(-14px); filter: brightness(1.6) saturate(1.4); }
+  55%  { opacity: 1; transform: scale(1.035) translateX(0); }
+  100% { transform: scale(1); filter: brightness(1) saturate(1); }
+}
+.materialize { animation: materialize .55s cubic-bezier(.2,.8,.2,1) both; }
+
+.verdict-text { flex: 1; min-width: 0; }
 .verdict .badge { font-size: 28px; font-weight: 900; letter-spacing: .01em; line-height: 1.1; }
 .verdict.trojan .badge { color: var(--threat-red); text-shadow: 0 0 18px rgba(217,48,37,.35); }
 .verdict.clean  .badge { color: var(--safe); text-shadow: 0 0 14px rgba(46,158,79,.3); }
 .verdict .meta { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
 
-/* Threat gauge — the numeral is ALWAYS rendered, never bar-only (FR-047) */
-.gauge { margin-left: auto; text-align: right; min-width: 140px; }
-.gauge .label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-.gauge .value { font-size: 27px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.15; }
-.verdict.trojan .gauge .value { color: var(--threat-red); text-shadow: 0 0 16px rgba(217,48,37,.35); }
-.verdict.clean  .gauge .value { color: var(--safe); }
-.gauge .track {
-  position: relative; height: 8px; border-radius: 99px;
-  background: rgba(17,24,32,.1); overflow: hidden; margin-top: 6px;
+/* ==================== compass-style threat gauge ====================
+ * A semicircular speedometer dial in place of a flat bar. The needle and coloured
+ * bands are decoration; SAFE/THREAT are drawn on the dial face as real text, and the
+ * numeral is always rendered beside it, so meaning never depends on the colour
+ * alone (FR-047). See components/ThreatGauge.tsx for the geometry.
+ * ======================================================================= */
+.threat-gauge { margin-left: auto; text-align: center; flex: none; }
+
+.gauge-band { fill: none; stroke-width: 15; stroke-linecap: round; opacity: .9; }
+.gauge-band-safe    { stroke: var(--safe-accent); filter: drop-shadow(0 0 5px rgba(51,227,138,.5)); }
+.gauge-band-caution { stroke: var(--caution-glow); filter: drop-shadow(0 0 5px rgba(255,176,32,.45)); }
+.gauge-band-threat  { stroke: var(--threat-glow);  filter: drop-shadow(0 0 6px rgba(255,59,59,.55)); }
+
+.gauge-tick { stroke: rgba(17,24,32,.28); stroke-width: 2; }
+.gauge-end-label {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .08em;
+  fill: var(--muted); text-transform: uppercase;
 }
-.gauge .track > span {
-  display: block; height: 100%; border-radius: 99px; position: relative; overflow: hidden;
-  transition: width .5s cubic-bezier(.2,.8,.2,1);
+
+.needle-group { transition: transform .7s cubic-bezier(.2,.8,.2,1); }
+.gauge-needle { stroke-width: 3.5; stroke-linecap: round; filter: drop-shadow(0 0 5px currentColor); }
+.gauge-needle-tip { filter: drop-shadow(0 0 6px currentColor); }
+.gauge-hub { fill: var(--panel); stroke: var(--line); stroke-width: 2; }
+.gauge-hub-dot { fill: var(--ink); }
+
+.gauge-readout { margin-top: -6px; }
+.gauge-readout .label {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
 }
-.verdict.trojan .gauge .track > span {
-  background: linear-gradient(90deg,#FFC24B,var(--threat-red),#FF6A5A);
-  box-shadow: 0 0 12px rgba(255,59,59,.6);
+.gauge-readout .value {
+  font-size: 25px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1;
 }
-.verdict.clean  .gauge .track > span { background: var(--safe-accent); box-shadow: 0 0 10px rgba(51,227,138,.5); }
-/* Shimmer sweeping across the filled bar — the gauge feels like it's "thinking". */
-.gauge .track > span::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
-  width: 50%; animation: gauge-shimmer 1.6s linear infinite;
-}
-@keyframes gauge-shimmer {
-  from { transform: translateX(-120%); }
-  to   { transform: translateX(220%); }
+.gauge-readout .value.trojan { color: var(--threat-red); text-shadow: 0 0 16px rgba(217,48,37,.35); }
+.gauge-readout .value.clean  { color: var(--safe); }
+
+@media (prefers-reduced-motion: reduce) {
+  .materialize { animation: none; }
+  .needle-group { transition: none; }
 }
 
 /* ==================== screening layers (FR-045) ==================== */
@@ -618,6 +766,37 @@ h3.sub {
   text-transform: uppercase; color: var(--muted); font-weight: 800;
 }
 
+/* ==================== the spotlight block ====================
+ * "Why this is a Trojan" is the actual deliverable of the whole pipeline, so it
+ * gets a distinct hero frame -- everything else on this side of the screen
+ * (Screening Layers, Marked-up Listing) stays in the quieter, more procedural
+ * register above and below it.
+ * =============================================================== */
+.spotlight {
+  margin: 22px -4px 20px; padding: 18px 20px 6px;
+  border-radius: 14px;
+  background: linear-gradient(165deg, #FFF9F0 0%, #FFF3F2 55%, #FFF9F0 100%);
+  border: 1px solid #F6DCC6;
+  box-shadow: 0 0 0 1px rgba(255,176,32,.08), 0 14px 40px rgba(217,48,37,.1);
+  position: relative;
+}
+.spotlight-head {
+  margin: 0 0 14px; font-size: 15px; font-weight: 900; letter-spacing: .01em;
+  color: var(--ink); display: flex; align-items: center; gap: 9px;
+  text-transform: none;
+}
+.spotlight-head .pulse-dot {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--threat-red);
+  box-shadow: 0 0 10px 2px rgba(217,48,37,.6);
+  animation: dot-pulse 1.6s ease-in-out infinite;
+}
+
+.pulse-icon { animation: dot-pulse 1.1s ease-in-out infinite; display: inline-block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-head .pulse-dot, .pulse-icon { animation: none; }
+}
+
 .note { font-size: 12.5px; color: var(--muted); }
 .note.amber {
   background: var(--caution-fill); border: 1px solid #F0DFB3; color: var(--caution);
@@ -648,7 +827,7 @@ h3.sub {
 
 @media (prefers-reduced-motion: reduce) {
   .rise, .scanning::after, .empty-state .big { animation: none; }
-  .gauge .track > span, .gauge .track > span::after { transition: none; animation: none; }
+  .bar > span, .bar > span::after { transition: none; animation: none; }
   button.primary, button.primary::before { animation: none; }
   .verdict.trojan { animation: none; }
   .layer.hit .dot { animation: none; }

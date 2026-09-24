@@ -100,8 +100,9 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
       </div>
 
       <div className="panel-body">
-        {/* Photo first, as on a real sell form */}
-        <div className="section">
+        {/* Photo first, as on a real sell form. Each section gets its own accent
+            colour so the panel reads as lively rather than one flat block. */}
+        <div className="section section-violet">
           <div className="overline">📷 Photo</div>
           <label
             className={`dropzone ${draft.imageBase64 ? 'has-image' : ''}`}
@@ -131,7 +132,7 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
           )}
         </div>
 
-        <div className="section">
+        <div className="section section-pink">
           <div className="overline">🏷 Item details</div>
 
           <label htmlFor="title">Title</label>
@@ -164,7 +165,7 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
           </div>
         </div>
 
-        <div className="section">
+        <div className="section section-gold">
           <div className="overline">📝 Description</div>
           <textarea value={draft.description}
                     onChange={e => set('description', e.target.value)}
@@ -172,7 +173,7 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
                     placeholder="Paste the seller's description, including any HTML" />
         </div>
 
-        <div className="section">
+        <div className="section section-cyan">
           <div className="overline">📋 Item specifics</div>
           {draft.specifics.map((s, i) => (
             <div className="specifics-row" key={i}>
@@ -180,13 +181,13 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
                      onChange={e => setSpecific(i, 'key', e.target.value)} />
               <input type="text" value={s.value} placeholder="Value" aria-label="Specific value"
                      onChange={e => setSpecific(i, 'value', e.target.value)} />
-              <button type="button" aria-label="Remove this specific"
+              <button type="button" className="icon-btn" aria-label="Remove this specific"
                       onClick={() => onChange({ ...draft, specifics: draft.specifics.filter((_, j) => j !== i) })}>
                 ×
               </button>
             </div>
           ))}
-          <button className="link" type="button"
+          <button className="pill-add" type="button"
                   onClick={() => onChange({ ...draft, specifics: [...draft.specifics, { key: '', value: '' }] })}>
             + add specific
           </button>
@@ -194,19 +195,22 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
 
         {/* One primary CTA per screen, blue-family gradient only */}
         <div className="cta-row">
-          <button className="primary" onClick={onAnalyse} disabled={busy}>
-            {busy ? 'Analysing…' : '🛡  Analyse listing'}
+          <button className="primary" id="analyse-cta" onClick={onAnalyse} disabled={busy}>
+            {busy ? '⟳  Analysing…' : '🛡  Analyse listing'}
           </button>
 
-          <select defaultValue="" aria-label="Load a sample listing"
-                  onChange={e => { loadSample(e.target.value); e.target.value = '' }}>
-            <option value="">load a sample listing…</option>
-            {Object.entries(grouped).map(([technique, items]) => (
-              <optgroup key={technique} label={TECHNIQUE_LABEL[technique] ?? technique}>
-                {items.map(s => <option key={s.id} value={s.id}>{s.id}</option>)}
-              </optgroup>
-            ))}
-          </select>
+          <div className="sample-pill">
+            <span className="sample-pill-icon" aria-hidden="true">✨</span>
+            <select defaultValue="" aria-label="Load a sample listing"
+                    onChange={e => { loadSample(e.target.value); e.target.value = '' }}>
+              <option value="">load a sample listing…</option>
+              {Object.entries(grouped).map(([technique, items]) => (
+                <optgroup key={technique} label={TECHNIQUE_LABEL[technique] ?? technique}>
+                  {items.map(s => <option key={s.id} value={s.id}>{s.id}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
         </div>
 
         {draft.imageName && !draft.imageBase64 && (

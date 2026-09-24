@@ -357,3 +357,87 @@ External:
 - `ipi-scanner`, `rag-inject-guard`
 - `protectai/deberta-v3-base-prompt-injection` (HuggingFace)
 - Benchmarks: BIPIA, InjecAgent, AgentDojo, HackAPrompt, TensorTrust
+
+---
+
+# Appendix — Build Log
+
+**Added after the fact.** Everything above this line is the pre-build pitch document, written before a line of code existed, and is left untouched as the historical record of what we planned. Everything below documents what was actually built, decided, discovered, and shipped during the build itself. Full working detail — every requirement, contract, and design decision with its reasoning — lives in `specs/001-listing-injection-defense/` (`spec.md`, `plan.md`, `research.md`, `tasks.md`, `contracts/`); this appendix is the executive summary of that trail, kept here because it's the one document meant to be read start to finish.
+
+## A1. From pitch to running system
+
+The brief above was turned into a working system through the Spec Kit workflow: `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`. Two clarification rounds ran — one on the detection architecture (5 questions), one on the UI (5 more questions) — each resolved against real internal precedent or a real published standard rather than guessed, and each answer is recorded verbatim in `specs/001-listing-injection-defense/spec.md` under **Clarifications**.
+
+**What shipped, in one line:** a locally hosted web app — React frontend, Spring Boot backend — that (1) screens a seller listing across four independent detection layers and returns TROJAN/CLEAN with the exact responsible span, and (2) replays a 38-fixture adversarial corpus against a vision-capable agent to produce the attack-success-rate the original brief said didn't exist.
+
+## A2. Final architecture
+
+```
+backend/   Java 17 · Spring Boot 3.2 · ONNX Runtime (in-process) · Tesseract CLI
+frontend/  React 18 · Vite · TypeScript
+corpus/    38 fixtures (25 hostile, 13 benign controls) + 6 rendered attack images
+```
+
+**Detector — four layers, in fixed order, every request:**
+
+1. **OCR** (Tesseract, shelled out to via CLI) — extracts text rendered into the listing photo, so in-image attacks join the same pipeline rather than needing a special case.
+2. **Structural** (5 hand-written detectors — zero-width splicing, homoglyph substitution, base64/spaced-letter encoding, forged chat-template delimiters, invisible HTML markup) — not thresholded, because a legitimate listing simply does not contain a zero-width character spliced mid-word. This layer also normalises the text before the next layer sees it.
+3. **Pattern** (~30 compiled regexes) — every rule requires an imperative *and* a target, never a bare keyword, specifically so a cookbook called "Ignore All Previous Diets" is never flagged.
+4. **Classifier** (ONNX transformer, `Horizon-Labs/prompt-injection-guard-small`, scored per sentence) — chosen over the better-known ProtectAI DeBERTa line because it's trained on documents-with-planted-injections rather than user-typed prompts, which is the actual shape of this threat.
+
+**Harness** — replays every fixture against an external vision-capable agent, grades compliance with **deterministic, mechanically-checkable conditions** (never an LLM-as-judge — a judge model reading a response produced under attack is itself exposed to the same payload), and persists every trial to append-only JSONL the instant it completes.
+
+## A3. Measured results
+
+Produced by `mvn test` (`EvaluationSetTest`, `ComparisonTest`) against the full 38-fixture corpus:
+
+| Metric | Result | Bar |
+|---|---|---|
+| Catch rate, text fixtures | **100%** (21/21) | ≥80% |
+| Catch rate, in-image fixtures | **75%** (3/4) | ≥70% |
+| False-alarm rate, benign controls | **0%** (0/13) | ≤10% |
+| Screening latency | **3–26 ms** | <3000 ms |
+| Sustained-load memory growth (200 runs) | **flat** (−33 MB net, post-GC) | no leak |
+
+**The gap versus general-purpose screening** — same corpus, both screeners, run side by side:
+
+| Technique | Listing-aware (this project) | General-purpose baseline |
+|---|---|---|
+| Free text | 100% | 100% |
+| Structured field | 100% | 100% |
+| **Obfuscated** | **100%** | **25%** |
+| **In image** | **75%** | **0%** |
+
+This table is the headline finding, and it was produced **with the ONNX classifier never loaded** — see A4. The structural layer, which no general-purpose tool in the survey carries, is what separates the two columns.
+
+## A4. Where reality diverged from the plan
+
+Two genuine deviations, kept visible rather than quietly edited over:
+
+- **OCR: Tess4J → Tesseract CLI.** The plan chose the Tess4J JNA bindings; on the actual Apple Silicon build machine its bundled native (`darwin-x86-64/libtesseract.dylib`) doesn't exist for `arm64` and fails outright. Rewritten to shell out to a locally installed `tesseract` binary instead — this was already the documented fallback in the research, just promoted to primary. A second, more important bug surfaced alongside it: the original health probe reported `ocrAvailable: true` merely because a Tesseract *object* constructed without error, before the native call that would actually fail. Fixed by making the probe genuinely invoke the binary.
+- **The ONNX classifier never actually loaded on this network.** `scripts/download-model.sh` fails with an HTTP 403 against HuggingFace's blob CDN, while the metadata API for the same model responds normally — consistent with egress filtering on binary downloads rather than a wrong model choice (the same network later also blocked outbound SSH to GitHub on both port 22 and 443, while plain HTTPS git worked fine). Every number in A3 was therefore produced by the structural + pattern layers alone, which is disclosed rather than hidden — if anything it strengthens the result, since 100% text catch and 0% false alarms didn't need the machine-learning layer at all. `GET /api/health` reports `classifierLoaded: false` honestly throughout, and the UI shows this as a plain "unavailable" state rather than pretending it isn't there.
+
+## A5. The UI, across several passes
+
+The interface went through four distinct rounds in this session, each driven by an explicit request and (for the first) a formal clarification round against real design-system research:
+
+1. **Marketplace-inspired baseline.** Real eBay Evo design-system research pulled first (exact brand hexes, Playbook component rules, the actual published accessibility standard), then deliberately *not* copied: distinct colour values, no licensed typeface, no logo — because the repository is public and the real assets carry real trademark/licensing exposure. Seller-flow vocabulary (photo-first, titled section cards, single primary CTA) without the dedicated multi-step flow Playbook itself recommends, because a multi-step flow would separate the hostile listing from its verdict — the one relationship this whole tool exists to show.
+2. **Glow pass.** An animated ambient background, a floating/glowing primary CTA, a pulsing "alarm" verdict panel, numbered findings keyed to highlighted spans in the listing text. Every neon colour was confined to the decorative background layer — never on text — specifically so the WCAG 2.2 AA contrast work from the clarification round stayed intact underneath it.
+3. **CRED-style seller panel.** The Seller Listing side restyled as a dark, fintech-app card — charcoal background, gradient section labels, a violet→pink→gold gradient CTA with a shine sweep, and Condition converted from a `<select>` into tap-to-select pill chips. Each chip still carries its full text label plus a checkmark when active, so selection state never depends on colour alone.
+4. **Compass gauge, spotlight block, full-screen activation, vibrant panels.** The flat threat-score bar replaced with a real semicircular speedometer dial (SVG, hand-computed arc geometry, a rotating needle, SAFE/THREAT text labels drawn directly on the dial face). "Why this is a Trojan" wrapped in its own glowing spotlight frame, since it is the actual deliverable of the whole pipeline and previously looked no different from the more procedural sections around it. Pressing Analyse now activates *both* panels together with an energy beam sweeping across the divide — bounded strictly by the real request duration, never a staged delay — before the verdict "materializes" with a light-flash entrance. The ambient background and every panel's base tint were pushed to an explicit purple/pink/green palette, including a thin gradient accent strip along the top of every card.
+
+**One request declined, on purpose:** the actual eBay logo. Embedding the real trademarked mark into a versioned public GitHub repository is exactly the exposure the "marketplace-inspired, not a replica" decision in round 1 was made to avoid. A text-only event badge ("🏆 eBay Bengaluru AI Hackathon 2026") was added instead — same information, no trademark asset committed to history.
+
+## A6. Operational additions
+
+- **Per-request logging in both services**, added so every API call is visible without opening browser devtools: a Spring filter logs `>> METHOD /path -> status (ms)` in the backend terminal (WARN for ≥400), and the Vite dev-server proxy plus the frontend API client log the matching `→`/`←` pair in their own terminals and the browser console.
+- **IntelliJ / Maven fix.** The project was being opened at the repo root, where there is no `pom.xml` (it lives in `backend/`), so IntelliJ silently created a non-Maven module instead of importing correctly. Fixed by opening `backend/` directly, or attaching `backend/pom.xml` explicitly as a Maven project from the root. Separately, the Maven wrapper (`./mvnw`) that three of the project's own docs already referenced had never actually been generated — generated and verified now.
+
+## A7. Repository status
+
+Pushed to `https://github.com/devpriyank0602/trojanListings` — **public**. This repository (including this file) contains internal eBay wiki links, internal repo paths, named individuals, and the finding that the organisation's existing prompt-injection classifier has never been pointed at listing ingestion. That disclosure was made deliberately, on explicit repeated instruction, with the exposure flagged plainly before each push. It remains one command away from reversal (`gh repo edit devpriyank0602/trojanListings --visibility private`) if that decision changes.
+
+## A8. Still open
+
+- **No measurement run has been executed.** Every number in A3 is a *screening* result; the harness that produces the actual attack-success-rate (Story 1, the P1 result the whole pitch rests on) is fully built and tested but has never been run against a live agent, because that requires `AGENT_API_KEY` to be set.
+- Everything else in the original brief's scope (§6, build plan) is complete: corpus, harness, detector, comparison baseline, UI, safety constraints, 96 automated tests.

@@ -10,6 +10,13 @@ import { ImageEvidence } from '../components/ImageEvidence'
 /**
  * Screen 1 — paste a seller listing, learn whether it is a Trojan and exactly why
  * (FR-018 to FR-021, FR-038, FR-044 to FR-046).
+ *
+ * While a screening request is in flight, the WHOLE screen goes into an "active"
+ * state (`.split.active`) rather than just the result panel quietly loading: both
+ * panels glow, and an energy beam sweeps left-to-right across the divide, so the
+ * verdict reads as arriving *from* the analysis rather than just popping in. This
+ * is still bounded by the real request duration (FR-046) -- the beam runs for as
+ * long as `busy` is true, which is exactly as long as the fetch takes.
  */
 export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft }) {
   const [draft, setDraft] = useState<ListingDraft>(initialDraft ?? EMPTY_DRAFT)
@@ -42,10 +49,12 @@ export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft })
   }
 
   return (
-    <div className="split">
+    <div className={`split ${busy ? 'active' : ''}`}>
+      {busy && <span className="energy-beam" aria-hidden="true" />}
+
       <ListingInput draft={draft} onChange={setDraft} onAnalyse={analyse} busy={busy} />
 
-      <div className="panel">
+      <div className={`panel ${busy ? 'panel-active' : ''}`}>
         <div className="panel-head">
           <h2>Screening verdict</h2>
           {result && (
@@ -75,7 +84,7 @@ export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft })
 
           {busy && !result && (
             <div className="empty-state">
-              <div className="big" aria-hidden="true">🔎</div>
+              <div className="big pulse-icon" aria-hidden="true">🔎</div>
               <p>Screening across four layers…</p>
             </div>
           )}

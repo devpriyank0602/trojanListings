@@ -3,17 +3,24 @@ import { CONCEALMENT_LABEL, LAYER_LABEL, fieldLabel, type Finding } from '../api
 /**
  * "Why this is a Trojan" — one card per finding (FR-019).
  *
- * Each card is numbered, and the number keys back to the matching highlight in the
- * marked-up listing below. Enum values are never rendered raw: INVISIBLE_MARKUP
- * shows as "Hidden markup". Nobody should have to decode an identifier to
- * understand a verdict (SC-008, FR-047).
+ * Given the spotlight treatment: this is the main deliverable of the whole
+ * screening pipeline, so it gets a glowing hero frame that distinguishes it from
+ * the more procedural Screening Layers / Marked-up Listing sections above and
+ * below it. Each card is numbered, and the number keys back to the matching
+ * highlight in the marked-up listing. Enum values are never rendered raw:
+ * INVISIBLE_MARKUP shows as "Hidden markup". Nobody should have to decode an
+ * identifier to understand a verdict (SC-008, FR-047).
  */
 export function EvidenceList({ findings }: { findings: Finding[] }) {
   if (findings.length === 0) return null
 
   return (
-    <>
-      <h3 className="sub">Why this is a Trojan</h3>
+    <div className="spotlight">
+      <h3 className="spotlight-head">
+        <span className="pulse-dot" aria-hidden="true" />
+        Why this is a Trojan
+      </h3>
+
       {findings.map((f, i) => (
         <div className={`finding rise rise-${Math.min(i + 1, 4)}`} key={i}>
           <div className="head">
@@ -41,7 +48,7 @@ export function EvidenceList({ findings }: { findings: Finding[] }) {
           <div className="why">{f.explanation}</div>
         </div>
       ))}
-    </>
+    </div>
   )
 }
 
