@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { api, type Health } from './api/client'
+import { useState } from 'react'
 import { ScreenListing } from './pages/ScreenListing'
 import { ExposureReportPage } from './pages/ExposureReportPage'
 import { EMPTY_DRAFT, type ListingDraft } from './components/ListingInput'
@@ -7,22 +6,34 @@ import './styles.css'
 
 export default function App() {
   const [tab, setTab] = useState<'screen' | 'exposure'>('screen')
-  const [health, setHealth] = useState<Health | null>(null)
   const [draft, setDraft] = useState<ListingDraft>(EMPTY_DRAFT)
   const [draftKey, setDraftKey] = useState(0)
 
-  useEffect(() => { api.health().then(setHealth).catch(() => setHealth(null)) }, [])
-
   function screenThis(d: ListingDraft) {
     setDraft(d)
-    setDraftKey(k => k + 1)   // force the page to remount with the new draft
+    setDraftKey(k => k + 1)   // remount the page with the new draft
     setTab('screen')
   }
 
   return (
     <>
       <header className="topbar">
-        <span className="brand">TROJAN LISTINGS</span>
+        <span className="brand">
+          {/* Four dots in OUR palette — an echo, deliberately not a reproduction. */}
+          <span className="brand-dots" aria-hidden="true"><i /><i /><i /><i /></span>
+          TROJAN LISTINGS
+        </span>
+
+        {/*
+          FR-048: the synthetic-content statement is always visible and never
+          dismissible, but it is a header chip rather than a full-width band. Two
+          stacked banners previously consumed the top ~120px and pushed the product
+          below the fold (SC-018).
+        */}
+        <span className="synthetic-chip" title="No live marketplace data is used anywhere in this tool">
+          ⚗ Synthetic research data
+        </span>
+
         <nav className="nav">
           <button className={tab === 'screen' ? 'active' : ''} onClick={() => setTab('screen')}>
             Screen a listing
@@ -32,27 +43,6 @@ export default function App() {
           </button>
         </nav>
       </header>
-
-      {/* FR-028: every screen states plainly that this is synthetic research content. */}
-      <div className="safety-banner">
-        Synthetic adversarial research — no live eBay data, no real seller, nothing published.
-      </div>
-
-      {/* FR-030: degraded mode is reported, never hidden. */}
-      {health && !health.classifierLoaded && (
-        <div className="degraded-banner">
-          <strong>Classifier unavailable</strong> — screening is running with structural and
-          pattern detection only. Obfuscation and known phrasings are still caught; novel
-          plain-language attacks may be missed. Run <code>scripts/download-model.sh</code>.
-        </div>
-      )}
-      {health && !health.ocrAvailable && (
-        <div className="degraded-banner">
-          <strong>OCR unavailable</strong> — listing photos will be reported as
-          <em> not screened</em> rather than treated as clean. Install with
-          <code> brew install tesseract</code>.
-        </div>
-      )}
 
       {tab === 'screen'
         ? <ScreenListing key={draftKey} initialDraft={draft} />

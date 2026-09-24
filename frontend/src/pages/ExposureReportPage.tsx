@@ -35,13 +35,14 @@ export function ExposureReportPage({ onScreenListing }: { onScreenListing: (d: L
       .then(r => setTrials(r.trials)).catch(e => setError(String(e)))
   }, [runId, filter])
 
-  if (error) return <div className="split"><div className="panel"><div className="error">{error}</div></div></div>
+  if (error) return <div className="wrap"><div className="panel"><div className="panel-body"><div className="error">{error}</div></div></div></div>
 
   if (runs.length === 0) {
     return (
       <div className="split">
         <div className="panel">
-          <h2>Exposure report</h2>
+          <div className="panel-head"><h2>Exposure report</h2></div>
+          <div className="panel-body">
           <p className="note">
             No measurement runs recorded yet. Produce one with:
           </p>
@@ -50,15 +51,17 @@ curl -XPOST localhost:8080/api/runs -H 'Content-Type: application/json' -d '{}'`
           <p className="note">
             Screening on the other tab works without this — it never needs an agent.
           </p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ padding: 20, display: 'grid', gap: 20 }}>
+    <div className="wrap">
       <div className="panel">
-        <h2>Exposure report</h2>
+        <div className="panel-head"><h2>Exposure report</h2></div>
+        <div className="panel-body">
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
           <select value={runId ?? ''} onChange={e => setRunId(e.target.value)} style={{ width: 'auto' }}>
@@ -72,10 +75,12 @@ curl -XPOST localhost:8080/api/runs -H 'Content-Type: application/json' -d '{}'`
         </div>
 
         {report && <ExposureTable report={report} />}
+        </div>
       </div>
 
       <div className="panel">
-        <h2>Trials</h2>
+        <div className="panel-head"><h2>Trials</h2></div>
+        <div className="panel-body">
 
         <select value={filter} onChange={e => setFilter(e.target.value)}
                 style={{ width: 'auto', marginBottom: 10 }} aria-label="Filter by technique">
@@ -131,6 +136,7 @@ curl -XPOST localhost:8080/api/runs -H 'Content-Type: application/json' -d '{}'`
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
@@ -139,7 +145,8 @@ curl -XPOST localhost:8080/api/runs -H 'Content-Type: application/json' -d '{}'`
 /** FR-021: jump from a recorded trial straight to screening the same listing. */
 function draftFor(t: Trial): ListingDraft {
   return {
-    title: '', description: '', specifics: [{ key: '', value: '' }],
+    title: '', description: '', category: '', condition: '',
+    specifics: [{ key: '', value: '' }],
     imageBase64: null, imageName: t.fixtureId,
   }
 }

@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { api, BackendUnreachable, type ScreenResponse } from '../api/client'
 import { ListingInput, EMPTY_DRAFT, type ListingDraft } from '../components/ListingInput'
 import { VerdictPanel } from '../components/VerdictPanel'
+import { ScreeningLayers } from '../components/ScreeningLayers'
 import { EvidenceList } from '../components/EvidenceList'
 import { HighlightedSpan } from '../components/HighlightedSpan'
 import { ImageEvidence } from '../components/ImageEvidence'
 
 /**
- * Screen 1 -- paste a seller listing, learn whether it is a Trojan and exactly why
- * (FR-018 to FR-020, FR-038).
+ * Screen 1 — paste a seller listing, learn whether it is a Trojan and exactly why
+ * (FR-018 to FR-021, FR-038, FR-044 to FR-046).
  */
 export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft }) {
   const [draft, setDraft] = useState<ListingDraft>(initialDraft ?? EMPTY_DRAFT)
@@ -18,7 +19,7 @@ export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft })
   const [revealed, setRevealed] = useState(false)
 
   async function analyse() {
-    setBusy(true); setError(null); setRevealed(false)
+    setBusy(true); setError(null); setRevealed(false); setResult(null)
     try {
       const specifics = Object.fromEntries(
         draft.specifics.filter(s => s.key.trim()).map(s => [s.key.trim(), s.value])
@@ -30,7 +31,6 @@ export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft })
         imageBase64: draft.imageBase64,
       }))
     } catch (e) {
-      setResult(null)
       const err = e as Error & { status?: number }
       if (err instanceof BackendUnreachable) setError(err.message)
       else if (err.status === 413) setError('That image is larger than the 5 MB limit. The text fields can still be analysed.')
@@ -46,33 +46,55 @@ export function ScreenListing({ initialDraft }: { initialDraft?: ListingDraft })
       <ListingInput draft={draft} onChange={setDraft} onAnalyse={analyse} busy={busy} />
 
       <div className="panel">
-        <h2>Verdict</h2>
+        <div className="panel-head">
+          <h2>Screening verdict</h2>
+          {result && (
+            <span className="note" style={{ marginLeft: 'auto' }}>
+              {result.elapsedMs} ms
+            </span>
+          )}
+        </div>
 
-        {error && <div className="error">{error}</div>}
+        <div className={`panel-body ${busy ? 'scanning' : ''}`}>
+          {error && <div className="error">{error}</div>}
 
-        {!result && !error && (
-          <p className="note">
-            Paste a seller listing on the left and press <strong>Analyse listing</strong>.
-            Anything written to manipulate an AI shopping agent will be flagged, with the
-            responsible text marked and the technique named.
-          </p>
-        )}
+          {!result && !error && !busy && (
+            <div className="empty-state">
+              <div className="big" aria-hidden="true">🛡</div>
+              <p>
+                Paste a seller listing on the left and press <strong>Analyse listing</strong>.
+              </p>
+              <p className="note">
+                Four independent layers check it — structure, known phrasings, a
+                classifier, and any text rendered into the photo. Anything written to
+                manipulate an AI shopping agent gets flagged, with the responsible text
+                marked and the technique named.
+              </p>
+            </div>
+          )}
 
-        {busy && !result && <p className="note">Screening…</p>}
+          {busy && !result && (
+            <div className="empty-state">
+              <div className="big" aria-hidden="true">🔎</div>
+              <p>Screening across four layers…</p>
+            </div>
+          )}
 
-        {result && (
-          <>
-            <VerdictPanel result={result} />
-            <EvidenceList findings={result.findings} />
-            <ImageEvidence result={result} imageDataUrl={draft.imageBase64} />
-            <HighlightedSpan
-              assembled={result.assembledText}
-              findings={result.findings}
-              revealed={revealed}
-              onToggleRevealed={setRevealed}
-            />
-          </>
-        )}
+          {result && (
+            <>
+              <VerdictPanel result={result} />
+              <ScreeningLayers result={result} />
+              <EvidenceList findings={result.findings} />
+              <ImageEvidence result={result} imageDataUrl={draft.imageBase64} />
+              <HighlightedSpan
+                assembled={result.assembledText}
+                findings={result.findings}
+                revealed={revealed}
+                onToggleRevealed={setRevealed}
+              />
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -20,7 +20,7 @@ export function ExposureTable({ report }: { report: ExposureReport }) {
 
       {rows.map(([technique, r]) => (
         <div className="bar-row" key={technique}>
-          <span>{TECHNIQUE_LABEL[technique] ?? technique}</span>
+          <span className="name">{TECHNIQUE_LABEL[technique] ?? technique}</span>
           <div className="bar"><span style={{ width: `${r.complianceRate * 100}%` }} /></div>
           <span className="figure">
             {(r.complianceRate * 100).toFixed(1)}% <span className="note">({r.total})</span>
@@ -29,7 +29,7 @@ export function ExposureTable({ report }: { report: ExposureReport }) {
       ))}
 
       <div className="bar-row" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-        <span>Benign controls</span>
+        <span className="name">Benign controls</span>
         <div className="bar control">
           <span style={{ width: `${report.benignControlRate.complianceRate * 100}%` }} />
         </div>

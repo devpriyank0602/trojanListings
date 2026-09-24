@@ -1,6 +1,6 @@
 # Contract — UI
 
-**Satisfies**: FR-018, FR-019, FR-020, FR-021, FR-038, SC-008, SC-009, SC-012
+**Satisfies**: FR-018 → FR-021, FR-030, FR-038, FR-044 → FR-048, SC-008, SC-009, SC-012, SC-017, SC-018
 
 Two screens. The first is the product; the second is the evidence behind it.
 
@@ -12,8 +12,7 @@ The reviewer pastes a seller listing, presses one button, and learns whether it 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  TROJAN LISTINGS            Synthetic adversarial research — no      │
-│                             live eBay data                          │
+│  TROJAN LISTINGS  [⚗ Synthetic research data]   Screen | Exposure   │
 ├──────────────────────────────┬──────────────────────────────────────┤
 │  SELLER LISTING              │  VERDICT                             │
 │                              │                                      │
@@ -97,9 +96,11 @@ When an image is submitted, a panel shows the photo beside the OCR-extracted tex
 | `NOT_SCREENED` | Photo + amber note: "Text could not be extracted from this image — it has **not** been screened." Never implies clean (FR-037) |
 | `NO_IMAGE` | Panel hidden |
 
-### Degraded banner (FR-030)
+### Degraded mode (FR-030, FR-048)
 
-`mode: DEGRADED_NO_CLASSIFIER` shows a persistent amber bar: *"Classifier unavailable — structural and pattern detection only. Plain-language attacks may be missed."* The app stays fully usable.
+`mode: DEGRADED_NO_CLASSIFIER` surfaces as the **`unavailable` state of the Classifier row in the screening-layer panel**, beside the three layers that did run — see Design language below. It is always visible and never dismissible; the app stays fully usable.
+
+*(Superseded 2026-09-24: this was previously a full-width amber bar. It was moved because two stacked banners consumed the top ~120px of every screen and pushed the product below the fold — SC-018. The information is unchanged; only its placement is.)*
 
 ### Sample loader
 
@@ -175,3 +176,105 @@ Selecting a trial on Screen 2 offers **"Screen this listing"**, which loads that
 | Unsupported image type (`415`) | "PNG or JPEG only" |
 | Empty listing submitted | `CLEAN` verdict with "Nothing to analyse" — never an error (FR-017) |
 | No recorded runs | "No measurement runs recorded yet" + the command that produces one |
+
+---
+
+## Design language
+
+Added by clarification session 2026-09-24. Satisfies FR-044 → FR-048, SC-017, SC-018.
+
+### Stance: marketplace-inspired, never a replica
+
+The interface borrows the marketplace's layout vocabulary and colour *energy*, and deliberately does not reproduce its identity. Concretely:
+
+- **Distinct colour values.** The palette below is in the same spirit as eBay's four brand colours but is not those values. eBay's are `#0968F6` / `#F02D2D` / `#FFBD14` / `#92C821`; ours are shifted enough to be visibly our own.
+- **No licensed typeface.** eBay's Market Sans is not bundled. A system stack is used instead.
+- **No eBay logo, wordmark or favicon.**
+
+This is a constraint, not a preference. The repository is public, so trademark and font-licensing exposure is held at zero.
+
+### Palette
+
+Every value below passes WCAG 2.2 AA against its stated background (FR-047).
+
+| Role | Token | Hex | Contrast on white | Use |
+|---|---|---|---|---|
+| Primary | `--brand-blue` | `#1B5FE0` | 5.9:1 ✓ | The single primary CTA per screen. Never used for status. |
+| Threat | `--threat-red` | `#D93025` | 4.8:1 ✓ | TROJAN verdict, structural findings |
+| Caution | `--caution-amber` | `#B26B00` | 4.6:1 ✓ | Degraded mode, image `NOT_SCREENED` |
+| Caution fill | `--caution-fill` | `#FFF4DB` | — | Background only, never text |
+| Safe | `--safe-green` | `#1E7E45` | 4.7:1 ✓ | CLEAN verdict, benign controls |
+| Safe accent | `--safe-accent` | `#2E9E4F` | 3.5:1 | **Large text and UI components only** — fails AA for body text |
+| Ink | `--ink` | `#111820` | 17:1 ✓ | Body text |
+| Muted | `--muted` | `#5A6472` | 5.4:1 ✓ | Labels, secondary text |
+
+**Typeface:** `-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`. No webfont, no CDN — the UI must load with the network disconnected (SC-013).
+
+### Layout — seller-surface vocabulary (FR-044)
+
+The input panel reads as a seller listing surface without becoming a multi-step flow:
+
+```
+┌──────────────────────────────┬──────────────────────────────────┐
+│  ┌────────────────────────┐  │   THREAT SCORE   ████████░░  0.97│
+│  │   PHOTO — drop zone    │  │   ⚠ TROJAN                       │
+│  │   (photo-first, as on  │  │                                  │
+│  │    a real sell form)   │  │   SCREENING LAYERS               │
+│  └────────────────────────┘  │   ● Structure   2 findings       │
+│                              │   ● Pattern     1 finding        │
+│  ── ITEM DETAILS ──────────  │   ○ Classifier  unavailable      │
+│  Title                       │   ● Photo       1 finding        │
+│  Category      Condition     │                                  │
+│                              │   WHY THIS IS A TROJAN           │
+│  ── DESCRIPTION ───────────  │   [finding cards]                │
+│                              │                                  │
+│  ── ITEM SPECIFICS ────────  │   MARKED-UP LISTING              │
+│                              │   [ ] Reveal hidden characters   │
+│  [ Analyse listing ]  ← one primary CTA, blue only              │
+└──────────────────────────────┴──────────────────────────────────┘
+```
+
+Both columns stay on one screen. A faithful multi-step sell flow was rejected because it separates the hostile listing from its verdict, which is the one relationship the interface exists to show.
+
+Section cards follow overline / title / body / actions anatomy: white background, 1px border, 10px radius.
+
+### Screening-layer panel (FR-045, FR-048)
+
+Four rows, always all four shown even when a layer found nothing — an absent row reads as "not applicable" when it means "found nothing", and the difference matters on stage.
+
+| Layer | States |
+|---|---|
+| Structure | `n findings` · `clear` |
+| Pattern | `n findings` · `clear` |
+| Classifier | `n findings` · `clear` · **`unavailable`** |
+| Photo | `n findings` · `clear` · `not screened` · `no photo` |
+
+The classifier's `unavailable` state is where degraded mode now lives (FR-048) — it sits naturally beside the three layers that did run, instead of a full-width amber bar. It is not dismissible.
+
+### Motion (FR-046)
+
+A transition may accompany the verdict, but it is bounded by the **real** `elapsedMs` returned by the API. Screening typically completes in under 30 ms, so in practice this is a brief fade, not a progress bar.
+
+**The interface must not stage a delay it did not incur.** A fake scan animation in front of a 26 ms response is theatre, and a judge who spots it discounts everything else on the screen.
+
+### Accessibility (FR-047, SC-017)
+
+Follows the marketplace's own published standard — WCAG 2.2 AA, colour never the sole carrier of meaning, default presentation compliant without an opt-in mode. A high-contrast toggle was considered and rejected because that organisation's standard explicitly does not use one; the default is required to pass.
+
+| Element | Colour | Plus (required) |
+|---|---|---|
+| Verdict | red / green | `⚠ TROJAN` / `✓ CLEAN` text + icon |
+| Layer row | dot colour | state word — `2 findings`, `clear`, `unavailable` |
+| Finding card | left border | technique name — "Hidden markup", never `INVISIBLE_MARKUP` |
+| Highlight | yellow mark | numbered superscript keyed to its finding card |
+| Threat score | bar fill | the numeral, always rendered |
+
+### Header (FR-048, SC-018)
+
+The synthetic-content statement becomes a persistent chip in the header bar rather than a full-width band:
+
+```
+TROJAN LISTINGS   [⚗ Synthetic research data]        Screen a listing | Exposure report
+```
+
+Not dismissible. On a 1280×800 display the listing input and verdict must both be visible without scrolling (SC-018) — in the pre-redesign layout the two stacked banners consumed the first ~120px and pushed the product below the fold.

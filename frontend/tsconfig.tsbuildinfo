@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/api/client.ts","./src/components/evidencelist.tsx","./src/components/exposuretable.tsx","./src/components/highlightedspan.tsx","./src/components/imageevidence.tsx","./src/components/listinginput.tsx","./src/components/verdictpanel.tsx","./src/pages/exposurereportpage.tsx","./src/pages/screenlisting.tsx"],"version":"5.9.3"}

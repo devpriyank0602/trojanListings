@@ -57,6 +57,24 @@ Requirement count grew from 26 to 43 functional requirements and from 12 to 16 s
 4. **Measurement lives in the backend and persists every trial** — the interface serves recorded results, so no user-facing capability depends on a live agent call. Drove FR-039 to FR-041, and tightened FR-021 and SC-012.
 5. **Deterministic compliance judging, no LLM-as-judge** — a judge model grading a response produced under attack is exposed to the same payload. Drove FR-003, FR-008, FR-042, FR-043, SC-016, and an honest limitation note that the reported rate is a conservative floor.
 
+### `/speckit-clarify` — session 2026-09-24, round 2 (5 questions, all answered)
+
+Re-validated after integrating five UI clarifications. **16/16 → 16/16 items passing**; no newly-passing items, no regressions. Requirements grew 43 → 48 FRs, 16 → 18 SCs.
+
+One contradiction was introduced and fixed before re-validation:
+
+- `contracts/ui-contract.md` still specified degraded mode as a *"persistent full-width amber bar"* while the new FR-048 moves it into the screening-layer panel. Left as-is the contract would have specified two mutually exclusive placements. Rewritten, with a dated `(Superseded)` note recording why it moved, so the history is legible rather than silently rewritten.
+
+**On "No implementation details":** the new FR-047 names WCAG 2.2 AA. This is deliberate and does not breach the item — WCAG is a published external conformance standard, in the same category as a regulatory requirement, not a technology choice. All concrete design values (hex codes, typeface stack, layout geometry) live in `contracts/ui-contract.md`, and `spec.md` still names no colour, font, framework or library.
+
+**Decisions settled in this round**
+
+1. **Marketplace-inspired, not a replica** — vibrant palette in the same spirit, deliberately distinct hex values, no licensed brand typeface, no logo. Driven by the repository being public: trademark and font-licensing exposure is held at zero. Drove the Assumptions entry.
+2. **Seller-flow vocabulary, not a seller-flow replica** — photo-first, titled section cards, single primary CTA, but both columns stay on one screen. A faithful multi-step flow was rejected because it separates the hostile listing from its verdict, which is the only relationship the interface exists to demonstrate. Drove FR-044.
+3. **Evidence *and* motion** — the four screening layers become individually visible, with a transition bounded by real elapsed time. Drove FR-045 and FR-046, and FR-046 exists specifically to forbid staging a delay the system did not incur.
+4. **Accessibility follows the marketplace's own published standard** — WCAG 2.2 AA, never colour alone, compliant by default. The user initially chose an opt-in high-contrast toggle; research showed that organisation's standard explicitly does not use one and requires the default to pass, so the stated intent ("do as we do") was applied over the literal option. Drove FR-047 and SC-017.
+5. **Notices stay visible but stop costing a band each** — synthetic-content statement becomes a header chip, degraded mode becomes a layer-panel row. Neither dismissible. Drove FR-048 and SC-018.
+
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

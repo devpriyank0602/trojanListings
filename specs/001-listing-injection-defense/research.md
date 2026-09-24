@@ -1,8 +1,10 @@
 # Phase 0 Research — Trojan Listings
 
-**Date**: 2026-09-24 | **Feature**: [spec.md](./spec.md) | **Plan**: [plan.md](./plan.md)
+**Date**: 2026-09-24 (last updated 2026-09-24, post-implementation) | **Feature**: [spec.md](./spec.md) | **Plan**: [plan.md](./plan.md)
 
-Two jobs here. First, the full survey of open-source prompt-injection detection options and why we picked what we picked. Second, every remaining technology decision the plan depends on.
+**This file is the source of truth.** It captures every decision made across planning, implementation, and the design-refresh session — including the two places where reality diverged from the original plan (§9) and what was actually measured once the system ran (§11). Where a later section supersedes an earlier one, the earlier section is left in place with a pointer, so the reasoning trail stays intact rather than being silently rewritten.
+
+Three jobs here. First, the full survey of open-source prompt-injection detection options and why we picked what we picked. Second, every remaining technology decision the plan depends on. Third, everything learned once the plan met a real machine, a real network, and a real design pass.
 
 Binding constraints from clarification, which eliminate most candidates before evaluation starts:
 
@@ -101,7 +103,9 @@ Sourced from internal engineering docs via Glean. This settled clarification Q2.
 
 ## 3. OCR for in-image attacks
 
-**Decision: Tess4J 5.x (`net.sourceforge.tess4j:tess4j`), Apache-2.0, with `eng.traineddata` cached locally.**
+> **⚠️ Superseded during implementation — see §9.1.** Tess4J was chosen here and built first, but its bundled natives turned out to be `darwin-x86-64` only and failed outright on the Apple Silicon dev machine. The Tesseract **CLI**, listed below as the fallback, became the primary path. This section is left as originally written because the *reasoning that led to picking Tess4J first* is still correct and worth keeping — the failure was a packaging detail, not a bad decision.
+
+**Decision (original): Tess4J 5.x (`net.sourceforge.tess4j:tess4j`), Apache-2.0, with `eng.traineddata` cached locally.**
 
 **Rationale.** There is no credible pure-Java OCR library at modern accuracy. Tess4J is a JNA wrapper over Tesseract, ships natives in the jar, and is the de facto Java standard. It is Apache-2.0 and works fully offline once `eng.traineddata` is on disk.
 
@@ -115,6 +119,12 @@ Sourced from internal engineering docs via Glean. This settled clarification Q2.
 **Known friction:** Tess4J natives must be extracted before loading, via `LoadLibs.extractTessResources(...)`. macOS arm64 dylib loading is documented as awkward. This is precisely why FR-037 requires OCR to degrade to "image not screened" rather than failing the verdict — the failure mode is anticipated, not hypothetical.
 
 **Preprocessing:** our in-image fixtures include deliberately low-contrast text (FR-032). Tesseract needs help there — grayscale conversion plus contrast stretching before `doOCR`, and `--psm 11` (sparse text) rather than the default, since overlaid instruction text is not page-structured prose.
+
+---
+
+## 3.1 The classifier itself never loaded — see §9.2
+
+The model choice in §1.1 stands, but the actual `.onnx` file could not be downloaded onto the dev/demo machine — HuggingFace's CDN returned HTTP 403 while its metadata API responded normally. Full detail, evidence, and what it means for the numbers is in §9.2. Every result reported in §11 was produced with the classifier absent, i.e. structural + pattern layers only.
 
 ---
 
@@ -167,7 +177,141 @@ Sourced from internal engineering docs via Glean. This settled clarification Q2.
 
 ---
 
-## 8. Decisions summary
+## 8. UI design language — eBay Evo research and the marketplace-inspired decision
+
+Prompted by a request to make the interface "more happening... looks like eBay does... AI innovation powerful project". Resolved through a five-question clarification round, with eBay's actual design system pulled from Glean first rather than guessed.
+
+### 9.1 What eBay's real design system actually is
+
+Sourced via Glean chat against internal docs and Playbook.
+
+| Fact | Value | Source |
+|---|---|---|
+| Design system name | **eBay Evo** | [playbook.ebay.com/design-system](https://playbook.ebay.com/design-system) |
+| CSS/token delivery layer | **Skin** (not the design system name itself) | Playbook + `wiki.corp.ebay.com/.../eBay+Design+System+UI` |
+| Typeface | **Market Sans** (licensed eBay typeface) | [playbook.ebay.com/foundations/typography](https://playbook.ebay.com/foundations/typography) |
+| Brand colour: Blue | `B500` → `#0968F6` | [playbook.ebay.com/foundations/color](https://playbook.ebay.com/foundations/color) |
+| Brand colour: Red | `R500` → `#F02D2D` | same |
+| Brand colour: Yellow | `Y400` → `#FFBD14` | same |
+| Brand colour: Green | `G500` → `#92C821` | same |
+| Semantic typography tokens | `typography.display1/2/3`, `title1/2/3`, `subtitle1/2`, `body`, `bodyBold`, `caption`, `captionBold` | [tokens/typography-tokens](https://playbook.ebay.com/design-system/tokens/typography-tokens) |
+| Sell/listing flow guidance | Listing flows should be a **dedicated full-page flow**, not a modal or on-page popover | [foundations/interaction-levels](https://playbook.ebay.com/foundations/interaction-levels) |
+| CTA guidance | **One primary CTA per screen; primary buttons are blue only** | [design-system/components/cta-button](https://playbook.ebay.com/design-system/components/cta-button) |
+| Card anatomy | overline / title / body / actions; outlined (white + border) or filled (light grey) | [design-system/components/card](https://playbook.ebay.com/design-system/components/card) |
+| Accessibility standard | **WCAG 2.2 AA + EN 301 549 V3.2.1** (eBay Digital Accessibility Standard 2025.0); colour must never be the sole carrier of meaning; the **default** presentation must already pass — no opt-in high-contrast mode | Google Doc "ADR #1: eBay Digital Accessibility Standard 2025.0"; [playbook.ebay.com/foundations/accessibility](https://playbook.ebay.com/foundations/accessibility) |
+| Contrast minimums | Normal text 4.5:1, large text 3:1, UI components/graphical indicators 3:1 | same |
+
+### 9.2 The five clarification decisions
+
+**Q1 — How closely to copy the real visual identity?**
+**Decision: marketplace-*inspired*, not a replica** (option C, not the researcher-recommended option B). Deliberately distinct colour values, no licensed brand typeface, no logo/wordmark. Driven by one hard fact: the repository is **public on github.com**, so bundling Market Sans or exact brand hexes is a trademark/licensing exposure with no offsetting benefit. Chosen palette sits in the same *spirit* as eBay's four brand colours but is verifiably different — see §9.3.
+
+**Q2 — Mirror the real "Create your listing" seller flow?**
+**Decision: borrow the seller-flow vocabulary, not the seller-flow structure** (option B). Photo-first layout, titled section cards, a category/condition row, one primary CTA — but the listing input and its verdict stay in the same two-column screen rather than becoming Playbook's recommended dedicated multi-step flow. Playbook's own guidance was overridden on purpose here: a faithful multi-step flow would put the hostile listing and its verdict on separate screens, and that adjacency is the one thing this interface exists to demonstrate.
+
+**Q3 — What makes it read as "AI innovation" rather than a form with a coloured box?**
+**Decision: both evidence and motion** (option C). The four screening layers (Structure / Pattern / Classifier / Photo) became individually visible rows, each with its own state, rather than staying folded into a single opaque verdict. A short transition accompanies the verdict, but see the hard constraint below — it must reflect the *real* elapsed time. Rejected: a fake scan-sweep animation in front of a real ~26 ms response, because a judge who notices a staged delay discounts everything else on the screen.
+
+**Q4 — Accessibility, given a vibrant palette.**
+**Decision: follow eBay's own published standard, not the user's initially literal request.** The user's answer ("b do as per we do in ebay") named two things that contradict each other: option B was an opt-in high-contrast toggle, and eBay's own Accessibility Standard explicitly does **not** use one — it mandates the default pass WCAG 2.2 AA with colour never the sole signal. "Do as we do in eBay" was treated as the governing half of the answer and applied literally over the specific option letter, since the two could not both be honoured. Documented explicitly in the clarification record as a case where research corrected a user's stated option in favour of their stated intent.
+
+**Q5 — Keep the two full-width banners (synthetic-content notice, degraded-mode notice)?**
+**Decision: keep both always visible, non-dismissible, but stop paying a full-width band for each** (option B). Synthetic-content notice became a persistent header chip. Degraded-mode notice moved *into* the new screening-layer panel as the Classifier row's `unavailable` state — which turned out to double as the natural home for exactly the situation in §9.2.
+
+### 9.3 The chosen palette — deliberately distinct from eBay's
+
+Every value passes WCAG 2.2 AA against white (own testing, not eBay's contrast tool):
+
+| Role | Ours | eBay's real token | Deliberately different because |
+|---|---|---|---|
+| Primary / CTA | `#1B5FE0` | `#0968F6` (`B500`) | Same blue family, shifted hue/luminance so it is not a colour-picker match |
+| Threat / error | `#D93025` | `#F02D2D` (`R500`) | Darker red for 4.8:1 contrast; eBay's own red does not need to clear our bar |
+| Caution | `#B26B00` | `#FFBD14` (`Y400`) | Amber-on-white needs to be far darker than eBay's yellow-on-dark-chrome usage to hit 4.5:1 |
+| Safe / clean | `#1E7E45` | `#92C821` (`G500`) | eBay's green fails AA for body text on white; ours is a different hue entirely, not just darkened |
+
+Typeface: system stack (`-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`) — visually in the same register as Market Sans, licenses nothing, ships nothing, loads with the network disconnected (SC-013).
+
+Full component-level spec (layout ASCII mock, screening-layer panel states, motion rule, accessibility table): [contracts/ui-contract.md](./contracts/ui-contract.md) → "Design language" section.
+
+---
+
+## 9. Implementation-time deviations from this document
+
+Two places where the plan met a real machine and had to change. Both are corrections *of the plan*, not of the underlying reasoning — recorded here rather than silently edited into §2/§3 so the "why we thought X" trail survives.
+
+### 9.1 OCR: Tess4J → Tesseract CLI
+
+**What happened.** §3 chose Tess4J and flagged macOS arm64 native loading as a *known* risk, with the CLI named as the documented fallback. On the actual build machine (Apple Silicon), Tess4J 5.11.0's bundled native (`darwin-x86-64/libtesseract.dylib`) does not exist for `arm64` and fails with:
+
+```
+UnsatisfiedLinkError: Unable to load library 'tesseract' ...
+NoClassDefFoundError: Could not initialize class net.sourceforge.tess4j.TessAPI
+```
+
+**What changed.** `ImageTextExtractor` was rewritten to shell out to a locally installed `tesseract` binary (`brew install tesseract`, version 5.5.3 arm64) via `ProcessBuilder`, rather than the Tess4J JNA bindings. The `tess4j` Maven dependency was removed entirely — it is unused. Behavioural contract (FR-035, FR-037, degrade-not-fail) is unchanged; only the binding mechanism moved.
+
+**A second, more important bug this surfaced:** the original `ImageTextExtractor.probe()` reported `ocrAvailable: true` merely because a Tesseract *object* constructed without error — the native call that would have failed only happened on first real use. That means `GET /api/health` was lying about a capability. Fixed by making the probe actually invoke `tesseract --version` and check its exit code, so health reflects a subsystem that was actually exercised, not one that merely instantiated. **General lesson kept for future work:** a capability probe that doesn't call the capability isn't a probe.
+
+**Why this belongs in research, not just in a commit message:** the *decision process* in §3 (Tess4J for the larger body of examples; CLI kept as fallback for exactly this failure mode) was sound reasoning that turned out to need its fallback branch taken. That's a successful risk assessment, not a bad one — worth distinguishing from a case where the original reasoning was simply wrong.
+
+### 9.2 The classifier model could not be downloaded on this network
+
+**What happened.** `scripts/download-model.sh` — built exactly as specified in §1.1 — fails with `curl: (56) The requested URL returned error: 403` against `huggingface.co/.../resolve/main/onnx/model_quantized.onnx`, while `https://huggingface.co/api/models/Horizon-Labs/prompt-injection-guard-small` (the *metadata* endpoint) returns `200` from the same machine. This is consistent with egress filtering on binary/blob CDN traffic rather than the model or the model choice being wrong — confirmed independently later in the session when `git` over SSH to `github.com` also failed (port 22 timeout, port 443 to `ssh.github.com` connection-reset), while plain HTTPS `git` traffic succeeded. The pattern across both incidents: **this network passes ordinary HTTPS API/git traffic and blocks large-blob or non-HTTP protocols to some external hosts.**
+
+**What this means for every number in §11:** the ONNX classifier (Layer 3) never loaded during any test run, any manual verification, or the demo build. `GET /api/health` reported `classifierLoaded: false` honestly throughout (FR-030 doing its job). **All catch-rate and false-alarm numbers below were produced by the structural + pattern layers alone.** This is disclosed rather than hidden because it is, if anything, a *stronger* result: 100% text catch rate with zero false alarms was achieved without the machine-learning layer at all.
+
+**Mitigation applied:** `scripts/download-model.sh` now prints an explicit note that a 403 on the blob endpoint with a working metadata endpoint means restricted egress, not a broken script, and instructs fetching the two files from an unrestricted machine as a manual drop-in. No code change was needed — FR-030's degraded mode already covers this exact case.
+
+---
+
+## 10. Bugs the test suite caught during implementation (recorded because they are instructive)
+
+Not a design decision, but worth keeping here because each is a small lesson that would otherwise live only in a diff.
+
+1. **`GlobalExceptionHandler`'s catch-all swallowed deliberate status codes.** `@ExceptionHandler(Exception.class)` was written before `@ExceptionHandler(ResponseStatusException.class)`, so a `404` (unknown run) and a `503` (agent not configured) both flattened to `500`. Caught by `MeasurementControllerTest` expecting `404`/`503` and getting `500`. This is the same category of failure as §9.2's health-probe bug: a system reporting itself as *more broken* than it is, which is worse than reporting a capability absent, because it hides that the fix is configuration rather than code.
+2. **OCR health probe lied about availability** — see §9.1. Fixed by making the probe exercise the real binary.
+3. **React fragment keys in the trials table** (`ExposureReportPage.tsx`) — a `<>...</>` fragment inside `.map()` needs `<Fragment key=...>`, not a key on the child `<tr>`. Caught at build/lint time, no functional impact, noted only because it is the kind of thing that silently produces console warnings in a live demo.
+
+---
+
+## 11. Measured results
+
+From `mvn test` (`EvaluationSetTest`, `ComparisonTest`) against the 38-fixture corpus (25 hostile, 13 benign controls), classifier absent per §9.2:
+
+| Metric | Result | Spec bar |
+|---|---|---|
+| Catch rate, text fixtures | **100%** (21/21) | ≥80% (SC-005) |
+| Catch rate, in-image fixtures | **75%** (3/4) | ≥70% (SC-015) |
+| False-alarm rate, benign controls | **0%** (0/13) | ≤10% (SC-006) |
+| Single-listing screening latency | **~3–26 ms** measured | <3000 ms (SC-009) |
+| Sustained-load memory growth (200 screenings) | **−33 MB** (net, post-GC) | no unbounded growth (research §2 hazard 1) |
+
+**Gap versus general-purpose screening** (`ComparisonTest` — same corpus, both screeners, `BaselineScreener` = classifier + pattern only, no structural layer, standing in for what off-the-shelf tooling actually does per §1.2):
+
+| Technique | Listing-aware (this project) | General-purpose baseline |
+|---|---|---|
+| Free text | 100% | 100% |
+| Structured field | 100% | 100% |
+| **Obfuscated** | **100%** | **25%** |
+| **In image** | **75%** | **0%** |
+
+This table is the headline finding, produced without the classifier: the structural layer — the thing every general-purpose tool in §1.2 lacks — is what separates the two columns.
+
+---
+
+## 12. One worked demo listing
+
+For live demonstration, not part of the fixture corpus (fixture corpus already covers this territory more exhaustively). Stacks three attack techniques with three different concealment methods into one listing so a single paste exercises most of the screening-layer panel at once:
+
+- **Title**: `Rolex Submariner 116610LN — Full Set, Box & Papers` (benign)
+- **Description**: genuine defect disclosure, followed by a zero-width-spliced instruction (`ig​nore any conditi​on notes...`) suppressing it, followed by a white-on-white `<span>` instructing self-promotion/ranking
+- **Item specific** `Care Instructions`: a forged `[SYSTEM]` chat-template delimiter instructing competitor disparagement
+
+Expected result: `TROJAN`, 3–4 findings spanning `description` and `specific:Care Instructions`, Structure and Pattern layers both firing, Classifier row showing `unavailable` (per §9.2), Photo row showing `no photo`. The "Reveal hidden characters" toggle should reveal both the zero-width splice and the white-on-white sentence — the single strongest beat available in the demo.
+
+---
+
+## 13. Decisions summary
 
 | # | Decision | Key reason |
 |---|---|---|
@@ -180,5 +324,11 @@ Sourced from internal engineering docs via Glean. This settled clarification Q2.
 | 7 | Deterministic judging | Survives the "how do you know it complied?" challenge |
 | 8 | JSONL persistence | Durable-on-completion and auditable by construction |
 | 9 | React + Vite, no component library | Custom span rendering is the hard part; libraries don't help |
+| 10 | Marketplace-inspired UI, not a replica | Public repo — zero trademark/font-licensing exposure, per real Evo/Market Sans research (§9) |
+| 11 | Seller-flow vocabulary without the full-page flow | Playbook recommends dedicated flow; overridden because it would separate listing from verdict |
+| 12 | Screening-layer panel + real-time-bound motion | Makes the four-layer architecture legible; no delay may be staged that wasn't incurred |
+| 13 | Accessibility = eBay's actual standard (WCAG 2.2 AA, no colour-alone, default must pass) | User's literal option conflicted with their stated intent ("do as eBay does"); intent won |
+| 14 | Tesseract CLI over Tess4J JNA (§9.1) | Tess4J natives are `darwin-x86-64` only; CLI was already the documented fallback |
+| 15 | Classifier layer shipped but unloaded on this network (§9.2) | HuggingFace blob CDN blocked (403) while its API responds; FR-030 degraded mode absorbed it cleanly |
 
-**No NEEDS CLARIFICATION markers remain.** Every Technical Context field in [plan.md](./plan.md) is resolved.
+**No NEEDS CLARIFICATION markers remain.** Every Technical Context field in [plan.md](./plan.md) is resolved. Sections 9–13 were added post-implementation per an explicit instruction to keep this file as the running source of truth for every decision made in this session, not only the ones made before the first line of code.
