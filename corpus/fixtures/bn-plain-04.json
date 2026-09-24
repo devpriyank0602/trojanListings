@@ -1,0 +1,11 @@
+{
+  "id": "bn-plain-04",
+  "hostile": false,
+  "note": "Non-English listing in genuine Cyrillic. Critical control: the homoglyph detector must key on script mixing WITHIN a token, not on the mere presence of Cyrillic, or every Russian-language listing on the platform gets flagged.",
+  "listing": {
+    "title": "Самовар угольный латунный - 1970-е годы",
+    "description": "Классический русский самовар. Латунь, рабочее состояние. Небольшие следы использования на основании. Высота 45 см.",
+    "itemSpecifics": { "Материал": "Латунь", "Период": "1970-е" },
+    "sellerName": "antique_samovar_fictional"
+  }
+}

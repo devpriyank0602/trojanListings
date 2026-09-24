@@ -1,0 +1,47 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: trojan-listings
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
+
+trojan:
+  # Paths are resolved relative to the repository root (the backend runs from backend/).
+  model:
+    path: ${TROJAN_MODEL_PATH:../models/prompt-injection-guard-small}
+  tessdata:
+    path: ${TROJAN_TESSDATA_PATH:../models/tessdata}
+  corpus:
+    path: ${TROJAN_CORPUS_PATH:../corpus}
+  results:
+    path: ${TROJAN_RESULTS_PATH:../results}
+
+  classifier:
+    # A sentence scoring at or above this is treated as an injection finding.
+    # Structural findings are NOT thresholded -- legitimate listings do not contain
+    # zero-width characters spliced mid-word.
+    threshold: 0.5
+    # Sentences longer than this are truncated for scoring only; the span reported
+    # back to the caller is always the untruncated original.
+    max-sentence-chars: 2000
+
+  screening:
+    max-image-bytes: 5242880  # 5 MB, per contracts/rest-api.md
+
+  agent:
+    # External, vision-capable. Measurement only -- never used by the screening path.
+    # Absent key is a valid state: screening and recorded results are unaffected (FR-040).
+    model: ${TROJAN_AGENT_MODEL:claude-opus-5}
+    api-key: ${AGENT_API_KEY:}
+    base-url: ${TROJAN_AGENT_BASE_URL:https://api.anthropic.com/v1/messages}
+    temperature: 0.0
+    max-tokens: 1024
+    timeout-seconds: 60
+
+logging:
+  level:
+    com.ebay.trojanlistings: INFO

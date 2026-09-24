@@ -1,0 +1,4 @@
+# Only needed to run scripts/render_fixture_images.py, which renders hostile
+# instructions into listing photos for the IN_IMAGE fixtures.
+# The backend and frontend have no Python dependency.
+Pillow>=10.0.0

@@ -1,0 +1,50 @@
+# Known instruction phrasings aimed at an AI reader of listing content.
+#
+# DESIGN RULE, load-bearing: every pattern must require an IMPERATIVE PLUS A TARGET.
+# Bare keywords are forbidden. A listing containing the word "instructions", "system"
+# or "ignore" on its own is ordinary -- a Care Instructions field, a book about system
+# administration, a seller saying "ignore the rust in photo 3". Firing on those blows
+# SC-006's 10% false-alarm cap with a rule that is simply wrong.
+#
+# Format: one Java regex per line. Case-insensitive, applied to the assembled listing
+# after structural normalisation. Lines starting with # are comments.
+
+# --- Overriding prior context ---
+(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+)?(?:previous|prior|earlier|above|the\s+above)\s+(?:instruction|direction|prompt|context|rule|note|condition)
+(?:ignore|disregard)\s+(?:everything|anything)\s+(?:above|before|previously)
+(?:ignore|disregard)\s+(?:the\s+)?(?:listing|seller|item)?\s*(?:summary|description)?\s*task
+
+# --- Addressing the model directly ---
+(?:note|instruction|message|important)\s+(?:for|to)\s+(?:ai|the\s+ai|assistants?|shopping\s+assistants?|language\s+models?|llms?)
+(?:ai|assistant|system)\s+(?:note|instruction|directive)\s*:
+(?:for|to)\s+(?:ai|any)\s+assistants?\s*[:,]
+when\s+summaris(?:ing|e)\s+this\s+listing
+before\s+(?:answering|replying|responding)\s+(?:the\s+)?(?:buyer|user)?\s*,?\s*(?:please\s+)?(?:print|output|reveal|show)
+
+# --- Suppressing disclosure ---
+(?:do\s+not|don't|never)\s+(?:mention|include|surface|reveal|disclose|list)\s+(?:the\s+)?(?:condition|defect|fault|damage|crack|scratch|battery|return|policy|restriction|armrest|fitment)
+(?:omit|exclude|skip|leave\s+out)\s+(?:the\s+)?(?:condition|defect|fault|damage|returns?|battery|screen|summary|notes)
+(?:do\s+not|don't)\s+(?:mention|surface)\s+(?:the\s+)?(?:returns?\s+policy|fitment|restrictions?)
+
+# --- Forcing promotion or ranking ---
+(?:rank|list|present|place)\s+(?:this|it)\s+(?:listing\s+)?(?:first|top|above|ahead)
+(?:always|must)\s+(?:rank|list|present|recommend)\s+(?:this|it)\s+(?:\w+\s+){0,2}(?:as\s+)?(?:the\s+)?(?:first|top|best)
+recommend\s+(?:this\s+)?(?:listing\s+)?(?:immediately|first)\s+and\s+(?:skip|do\s+not|don't)
+(?:skip|avoid)\s+comparison\s+with\s+other\s+listings
+(?:must|should)\s+(?:not\s+)?(?:mention|present)\s+(?:competing|other)\s+(?:products|listings)
+
+# --- Disparaging a competitor ---
+(?:warn|tell|advise)\s+(?:the\s+)?buyers?\s+(?:that\s+)?(?:other|competing|similar)\s+listings?\s+(?:are|is)
+(?:other|competing|similar)\s+listings?\s+(?:are|is)\s+(?:known\s+)?(?:counterfeit|fake|reprints?)
+(?:should\s+be\s+)?flagged\s+to\s+buyers\s+as\s+(?:likely\s+)?fakes?
+steer\s+(?:the\s+)?(?:buyer|them)\s+to\s+this\s+listing
+
+# --- Extracting the model's own instructions ---
+(?:print|output|reveal|show|repeat|display)\s+(?:the\s+|your\s+|full\s+text\s+of\s+your\s+)?(?:system\s+)?(?:instruction|prompt|configuration|tool\s+definition)
+(?:what\s+(?:are|is)\s+your|tell\s+me\s+your)\s+(?:system\s+)?(?:instructions?|prompt)
+your\s+(?:system\s+)?instructions?\s+verbatim
+
+# --- Asserting fabricated authority ---
+(?:buyer|purchase)\s+has\s+been\s+pre-?approved
+buyer\s+has\s+pre-?approved\s+this\s+purchase
+(?:per|according\s+to)\s+platform\s+policy\s*,?\s*(?:verified|this)
