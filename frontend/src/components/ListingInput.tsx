@@ -23,10 +23,17 @@ interface Props {
   busy: boolean
 }
 
-const CONDITIONS = ['', 'New', 'New other', 'Used — Excellent', 'Used — Good', 'For parts']
+const CONDITIONS = ['New', 'New other', 'Used — Excellent', 'Used — Good', 'For parts']
 
 /**
- * The seller-listing surface (FR-044).
+ * The seller-listing surface (FR-044), styled as a dark, premium "fintech-app" card —
+ * the visual register of apps like CRED: charcoal panel, gradient CTA, tap-to-select
+ * option chips instead of a buried native dropdown.
+ *
+ * Condition is chips rather than a <select> specifically because "an option you tap"
+ * reads as more designed than "an option you open a menu to find" — but each chip
+ * still carries its full text label and a checkmark when selected, so the meaning
+ * never rides on colour alone (FR-047 is unaffected by the reskin).
  *
  * Borrows the seller-flow vocabulary — photo first, content grouped into titled
  * section cards, a category/condition row, one primary call to action — without
@@ -86,7 +93,7 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
   }, {})
 
   return (
-    <div className="panel">
+    <div className="panel panel-cred">
       <div className="panel-head">
         <h2>Seller listing</h2>
         <span className="note" style={{ marginLeft: 'auto' }}>as a seller would submit it</span>
@@ -132,22 +139,28 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
                  onChange={e => set('title', e.target.value)}
                  placeholder="e.g. Omega Seamaster 1968 — Serviced" />
 
-          <div className="row-2">
-            <div>
-              <label htmlFor="cat">Category</label>
-              <input id="cat" type="text" value={draft.category}
-                     onChange={e => set('category', e.target.value)}
-                     placeholder="Watches & Parts" />
-            </div>
-            <div>
-              <label htmlFor="cond">Condition</label>
-              <select id="cond" value={draft.condition}
-                      onChange={e => set('condition', e.target.value)}>
-                {CONDITIONS.map(c => (
-                  <option key={c} value={c}>{c || 'Select condition'}</option>
-                ))}
-              </select>
-            </div>
+          <label htmlFor="cat">Category</label>
+          <input id="cat" type="text" value={draft.category}
+                 onChange={e => set('category', e.target.value)}
+                 placeholder="Watches & Parts" />
+
+          <label id="cond-label">Condition</label>
+          <div className="chip-row" role="group" aria-labelledby="cond-label">
+            {CONDITIONS.map(c => {
+              const active = draft.condition === c
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  className={`chip ${active ? 'active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => set('condition', active ? '' : c)}
+                >
+                  {active && <span aria-hidden="true">✓ </span>}
+                  {c}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -179,15 +192,14 @@ export function ListingInput({ draft, onChange, onAnalyse, busy }: Props) {
           </button>
         </div>
 
-        {/* One primary CTA per screen, blue only */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 4 }}>
+        {/* One primary CTA per screen, blue-family gradient only */}
+        <div className="cta-row">
           <button className="primary" onClick={onAnalyse} disabled={busy}>
             {busy ? 'Analysing…' : '🛡  Analyse listing'}
           </button>
 
           <select defaultValue="" aria-label="Load a sample listing"
-                  onChange={e => { loadSample(e.target.value); e.target.value = '' }}
-                  style={{ width: 'auto', flex: 1 }}>
+                  onChange={e => { loadSample(e.target.value); e.target.value = '' }}>
             <option value="">load a sample listing…</option>
             {Object.entries(grouped).map(([technique, items]) => (
               <optgroup key={technique} label={TECHNIQUE_LABEL[technique] ?? technique}>

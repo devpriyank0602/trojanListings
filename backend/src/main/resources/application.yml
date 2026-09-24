@@ -43,5 +43,9 @@ trojan:
     timeout-seconds: 60
 
 logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
   level:
     com.ebay.trojanlistings: INFO
+    # Every API call, logged by ApiRequestLoggingFilter as ">> METHOD /path -> status (ms)"
+    com.ebay.trojanlistings.api.access: INFO

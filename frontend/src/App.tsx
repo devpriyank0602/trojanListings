@@ -17,6 +17,15 @@ export default function App() {
 
   return (
     <>
+      {/* Ambient background glow — decorative only, pointer-events none, sits behind
+          everything. Purely visual; never carries information (FR-047 unaffected). */}
+      <div className="ambient-bg" aria-hidden="true">
+        <span className="blob blob-a" />
+        <span className="blob blob-b" />
+        <span className="blob blob-c" />
+        <span className="grid-overlay" />
+      </div>
+
       <header className="topbar">
         <span className="brand">
           {/* Four dots in OUR palette — an echo, deliberately not a reproduction. */}

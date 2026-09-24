@@ -110,14 +110,24 @@ export class BackendUnreachable extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Browser-console log, separate from the Vite-terminal log in vite.config.ts --
+  // this one is visible in devtools even if you never look at the terminal.
+  const method = init?.method ?? 'GET'
+  const started = performance.now()
+  console.log(`%c→ ${method} ${path}`, 'color:#4F8CFF')
+
   let res: Response
   try {
     res = await fetch(path, init)
-  } catch {
+  } catch (e) {
+    console.log(`%c✗ ${method} ${path} -> unreachable`, 'color:#D93025', e)
     // A network-level failure here means the backend is down, not that the user did
     // something wrong. Say so plainly and give the command that fixes it.
     throw new BackendUnreachable()
   }
+
+  const ms = Math.round(performance.now() - started)
+  console.log(`%c← ${method} ${path} -> ${res.status} (${ms} ms)`, res.ok ? 'color:#1E7E45' : 'color:#B26B00')
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
